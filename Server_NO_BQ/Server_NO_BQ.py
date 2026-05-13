@@ -3,7 +3,7 @@ Server — unified Python portal (`Server.html`, `server.css`, `server.js`, loca
 ServerCRON (NO-BQ) — automation stack without BigQuery; workbook-backed registry. Fork-friendly; configure branding via env.
 
 Arranque:
-    python Server_NO_BQ.py
+    python Server_NO_BQ/Server_NO_BQ.py
 
 Painel: `Server.html` (vistas Cron + Uploaders via `portal_view`). Assets: `server.css`, `server.js`.
 Regenerar o HTML/CSS/JS a partir dos ficheiros antigos (se existirem no repo):
@@ -29,11 +29,12 @@ from pathlib import Path
 # Operator defaults when this process is the main script — must run before PANEL_HTML_DIR.
 if __name__ == "__main__":
     _op_root = Path(__file__).resolve().parent
-    _panel_no_bq = _op_root / "Server_NO_BQ"
-    if _panel_no_bq.is_dir():
-        os.environ.setdefault("C6_SERVER_PANEL_DIR", str(_panel_no_bq))
+    if (_op_root / "Server.html").is_file():
+        _panel = _op_root
     else:
-        os.environ.setdefault("C6_SERVER_PANEL_DIR", str(_op_root))
+        _nested = _op_root / "Server_NO_BQ"
+        _panel = _nested if (_nested / "Server.html").is_file() else _op_root
+    os.environ.setdefault("C6_SERVER_PANEL_DIR", str(_panel))
     os.environ.setdefault("C6_DUO_PORTS", "0")
     os.environ.setdefault("C6_UP_PORT", "5001")
     os.environ.setdefault("C6_CRON_PORT", "5002")
@@ -76,6 +77,14 @@ from flask import (
     render_template, request, send_file, session, stream_with_context, url_for,
 )
 from werkzeug.utils import secure_filename
+
+# Helper modules may sit next to this file or in the parent Server package.
+_pbq_script_dir = Path(__file__).resolve().parent
+for _pbq_anchor in (_pbq_script_dir, _pbq_script_dir.parent):
+    if _pbq_anchor.is_dir():
+        _pbq_sp = str(_pbq_anchor.resolve())
+        if _pbq_sp not in sys.path:
+            sys.path.insert(0, _pbq_sp)
 
 from punk_background_server import register_punk_background_routes
 

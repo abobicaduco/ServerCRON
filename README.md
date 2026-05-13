@@ -17,7 +17,7 @@ Operations and data teams often juggle dozens of Python scripts—each with its 
 ### What you get
 
 - **Unified portal** — Browse configured automations, run on demand, and inspect recent results.
-- **Two deployment flavors** — Full stack with BigQuery hooks (`Server.py`) or a **no-BigQuery** variant (`Server_NO_BQ.py`) for air-gapped or local-only setups.
+- **Two deployment flavors** — Full stack with BigQuery hooks (`Server.py`) or a **no-BigQuery** variant (`Server_NO_BQ/Server_NO_BQ.py`) for air-gapped or local-only setups.
 - **Security-minded defaults** — Session auth, CSRF patterns where applicable, and environment-driven secrets (never commit real keys).
 - **Corporate-friendly paths** — Optional Windows home paths for shared drive layouts; override via environment variables for your org.
 
@@ -26,7 +26,7 @@ Operations and data teams often juggle dozens of Python scripts—each with its 
 1. Clone this repository.
 2. Create a Python 3.11+ virtual environment and install dependencies from your project’s `requirements` (if present) or follow inline/bootstrap notes in the server module you use.
 3. Set required environment variables (panel directory, mail domain suffix, cron secret, etc.) as documented in the server source headers.
-4. Run the chosen entrypoint (`Server.py` or `Server_NO_BQ.py`) and open the URL printed in the console.
+4. Run the chosen entrypoint (`Server.py` or `Server_NO_BQ/Server_NO_BQ.py`) and open the URL printed in the console.
 
 For issues and improvements, use **[GitHub Issues](https://github.com/abobicaduco/ServerCRON/issues)**.
 
@@ -45,7 +45,7 @@ Equipes de operações e dados costumam ter dezenas de scripts Python—cada um 
 ### O que você ganha
 
 - **Portal unificado** — Lista automações configuradas, executa sob demanda e consulta resultados recentes.
-- **Dois modos** — Stack completa com BigQuery (`Server.py`) ou variante **sem BigQuery** (`Server_NO_BQ.py`) para ambientes locais ou sem nuvem.
+- **Dois modos** — Stack completa com BigQuery (`Server.py`) ou variante **sem BigQuery** (`Server_NO_BQ/Server_NO_BQ.py`) para ambientes locais ou sem nuvem.
 - **Defaults conscientes de segurança** — Sessão, CSRF onde aplicável, segredos por variável de ambiente (nunca commitar chaves reais).
 - **Caminhos compatíveis com redes corporativas** — Segmentos de pasta sob `Path.home()` podem refletir diretórios compartilhados; ajuste via env para a sua organização.
 
@@ -54,7 +54,7 @@ Equipes de operações e dados costumam ter dezenas de scripts Python—cada um 
 1. Clone o repositório.
 2. Crie um ambiente virtual Python 3.11+ e instale as dependências do projeto.
 3. Configure as variáveis de ambiente exigidas (diretório do painel, sufixo de e-mail, segredo do cron, etc.) conforme os comentários no módulo do servidor escolhido.
-4. Execute `Server.py` ou `Server_NO_BQ.py` e abra a URL indicada no terminal.
+4. Execute `Server.py` ou `Server_NO_BQ/Server_NO_BQ.py` e abra a URL indicada no terminal.
 
 Dúvidas e melhorias: **[GitHub Issues](https://github.com/abobicaduco/ServerCRON/issues)**.
 
