@@ -11,7 +11,7 @@ Regenerar o HTML/CSS/JS a partir dos ficheiros antigos (se existirem no repo):
 
 Modos: (1) predefinido — uma porta (C6_DUO_PORTS=0): Uploaders em / e Cron em /cron/, mesma sessão; (2) opcional — C6_DUO_PORTS=1 com C6_UP_PORT / C6_CRON_PORT.
 
-Registo local: ficheiro ``registro_automacoes.xlsx`` na **mesma pasta que o processo Server** (pasta de ``Server_NO_BQ.py`` em modo script, ou pasta do ``.exe`` em modo frozen). Não usa ``C6_SERVER_PANEL_DIR`` nem ``graciliano/modules`` para este ficheiro.
+Registo local: ficheiro ``registro_automacoes.xlsx`` na **mesma pasta que o processo Server** (pasta deste ficheiro em modo script, ou pasta do ``.exe`` em modo frozen). Não usa ``C6_SERVER_PANEL_DIR`` nem ``graciliano/modules`` para este ficheiro.
 
 Worksheets e colunas esperadas:
   - ``AUTOMACOES``: cabeçalhos (após normalização maiúsculas) incluindo pelo menos ``PYTHON_NAME``, ``AREA_NAME``, ``CRON``, ``IS_ACTIVE``, ``PRIORITY``, ``EMAILS_PRINCIPAL``, ``EMAILS_CC``, ``MOVE_FILE``; opcionais ``MOVIMENTACAO_FINANCEIRA`` (ou ``MOVIMENTACAO FINANCEIRA``), ``INTERACAO_CLIENTE`` (ou ``INTERACAO CLIENTE``), ``TEMPO_MANUAL_MINUTOS`` (ou ``TEMPO MANUAL MINUTOS``), ``OBJETIVO``, ``RESPONSAVEL``.
