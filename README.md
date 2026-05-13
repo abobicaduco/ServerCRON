@@ -2,7 +2,7 @@
 
 # ⚡ ServerCRON
 
-### 🖥️ Flask · 📤 Uploaders · ⏱️ Cron · 🧾 Registo local (sem BigQuery neste repo)
+### 🖥️ Flask · 📤 Uploaders · ⏱️ Cron · ☁️ BigQuery opcional · 🧾 Registo local (modo NO‑BQ)
 
 <br/>
 
@@ -22,66 +22,66 @@
 
 <br/>
 
-<sub>✨ Portfólio / open source · 🚀 Um painel para disparar e acompanhar automações Python</sub>
+<sub>✨ Painel único para disparar automações Python, ver logs e agendar jobs</sub>
 
 </div>
+
+---
+
+## 📦 O que vem neste repositório
+
+| Entrada | Pasta / ficheiros | BigQuery |
+|--------|---------------------|----------|
+| 🏢 **Produção / dados em nuvem** | `Server.py` + `Server.html`, `server.js`, `server.css` na **raiz** | ✅ Sim (configura `SERVERCRON_BQ_*`) |
+| 🎒 **Portfólio / air‑gapped** | `Server_NO_BQ/Server_NO_BQ.py` + templates na mesma pasta | ❌ Não (xlsx local) |
+
+> ☁️ **Pipelines (GCS → BQ, etc.):** usa prefixo `Server_NO_BQ/**` se só quiseres o pacote sem nuvem — vê [`docs/BIGQUERY.md`](docs/BIGQUERY.md).
 
 ---
 
 <a id="pt-br"></a>
 
 <details open>
-<summary><strong>🇧🇷 Português (Brasil)</strong> — clica no título para recolher / expandir</summary>
+<summary><strong>🇧🇷 Português (Brasil)</strong> — clica para expandir / recolher</summary>
 
-## 🎯 O que é
+## 🎯 Resumo
 
-O **ServerCRON** (pacote `Server_NO_BQ/`) é um painel web em **Flask** com:
+O **ServerCRON** é um painel **Flask** com **Uploaders** (upload + execução) e **Cron** (agendador + histórico), com sessão e e-mail token (Outlook COM no Windows, quando disponível).
 
-- 🔐 **Login** com token por e-mail (Outlook COM no Windows, se disponível)
-- 📤 **Uploaders** — escolher pasta de automação, enviar ficheiros, correr scripts
-- ⏱️ **Cron** — agendador embutido, histórico de execuções, fluxo unificado com Uploaders
-- 🧾 **Registo** em `registro_automacoes.xlsx` (sem BigQuery neste repositório)
+## 🏃 Como correr
 
-## 🏃 Início rápido
+**Com BigQuery (raiz do clone):**
 
-1. 📥 `git clone https://github.com/abobicaduco/ServerCRON.git`
-2. 🐍 Python **3.11+** e dependências (Flask, openpyxl, apscheduler, etc. — vê imports em `Server_NO_BQ/Server_NO_BQ.py`)
-3. ⚙️ Variáveis `SERVERCRON_*` se precisares (painel, portas, raiz de dados — vê tabela abaixo)
-4. ▶️ Na raiz do clone:  
-   `python Server_NO_BQ/Server_NO_BQ.py`  
-   Abre o URL que aparecer no terminal.
+```bash
+python Server.py
+```
 
-## 📂 O que está neste repo
+**Sem BigQuery (só pacote NO‑BQ):**
 
-| Caminho | Descrição |
-|--------|-------------|
-| `Server_NO_BQ/Server_NO_BQ.py` | 🧠 Servidor Flask (entrada principal) |
-| `Server_NO_BQ/Server.html` | 🎨 Template do painel |
-| `Server_NO_BQ/server.css` · `server.js` | 🎨 Estáticos |
-| `LICENSE` | 📜 MIT |
-| `docs/BIGQUERY.md` | ☁️ Nota sobre âmbito (só `Server_NO_BQ/` em pipelines) |
+```bash
+python Server_NO_BQ/Server_NO_BQ.py
+```
 
-> 💡 **BigQuery:** este clone público traz **só** o pacote `Server_NO_BQ/`. Se alguma rotina tua carregou “a pasta inteira” para o BQ, filtra o prefixo para `Server_NO_BQ/` — vê `docs/BIGQUERY.md`.
+Abre o URL indicado no terminal. Variáveis `SERVERCRON_*` documentadas no topo de cada `.py`.
 
-## ⚙️ Variáveis de ambiente (`SERVERCRON_*`)
+## ⚙️ Variáveis `SERVERCRON_*` (resumo)
 
 | Variável | Função |
 |----------|--------|
 | `SERVERCRON_PANEL_DIR` | Pasta com `Server.html` (opcional) |
 | `SERVERCRON_DATA_ROOT` | Raiz de `automacoes/` e `config/modules/` (defeito: `~/Documents/ServerCRON`) |
-| `SERVERCRON_DUO_PORTS` | `1` = duas portas; `0` = app unificada |
+| `SERVERCRON_DUO_PORTS` | `1` duas portas · `0` app unificada |
 | `SERVERCRON_UP_PORT` / `SERVERCRON_CRON_PORT` | Portas em modo duo |
-| `SERVERCRON_UNIFIED_PORT` | Porta em modo unificado (links em e-mails) |
-| `SERVERCRON_EMAIL_DOMAIN` | Sufixo de e-mail de login (ex. `@example.com`) |
-| `SERVERCRON_OUTLOOK_MONITOR_MAILBOX` | Nome da mailbox Outlook (Windows) |
-| `SERVERCRON_OPEN_BROWSER` | `0` para não abrir browser ao arrancar |
+| `SERVERCRON_UNIFIED_PORT` | Porta unificada (links em e-mail) |
+| `SERVERCRON_EMAIL_DOMAIN` | Sufixo de login (ex. `@example.com`) |
+| `SERVERCRON_OUTLOOK_MONITOR_MAILBOX` | Mailbox Outlook (Windows) |
+| `SERVERCRON_OPEN_BROWSER` | `0` não abre browser |
+| `SERVERCRON_BQ_*` | Apenas em `Server.py` — prefixo BQ, tabela de permissões, TTL de cache |
 
-Nomes antigos `C6_*` **já não são lidos**.
+## 💼 LinkedIn (PT‑BR)
 
-## 💼 Texto para LinkedIn (PT-BR)
-
-> Publiquei o **ServerCRON** em open source: um portal **Flask** para rodar, agendar e acompanhar automações Python num só sítio, com **Uploaders + Cron** e registo local.  
-> 🔗 `https://github.com/abobicaduco/ServerCRON`
+> Lançámos o **ServerCRON**: portal **Flask** com **Uploaders + Cron**, opcionalmente com **BigQuery**, e variante **sem nuvem** em `Server_NO_BQ/`.  
+> 🔗 https://github.com/abobicaduco/ServerCRON
 
 </details>
 
@@ -90,57 +90,46 @@ Nomes antigos `C6_*` **já não são lidos**.
 <a id="en-us"></a>
 
 <details>
-<summary><strong>🇺🇸 English (US)</strong> — click the title to expand / collapse</summary>
+<summary><strong>🇺🇸 English (US)</strong> — click to expand / collapse</summary>
 
-## 🎯 What it is
+## 🎯 Summary
 
-**ServerCRON** (the `Server_NO_BQ/` package) is a **Flask** web console featuring:
+**ServerCRON** is a **Flask** console with **Uploaders** (upload + run) and **Cron** (scheduler + history), with session + email OTP (Outlook COM on Windows when available).
 
-- 🔐 **Email token login** (Outlook COM on Windows when available)
-- 📤 **Uploaders** — pick an automation folder, upload files, run scripts
-- ⏱️ **Cron** — built-in scheduler, run history, unified flow with Uploaders
-- 🧾 **Workbook registry** via `registro_automacoes.xlsx` (no BigQuery in this repo)
+## 🏃 How to run
 
-## 🏃 Quick start
+**With BigQuery (repo root):**
 
-1. 📥 `git clone https://github.com/abobicaduco/ServerCRON.git`
-2. 🐍 Python **3.11+** and dependencies (Flask, openpyxl, APScheduler, etc. — see imports in `Server_NO_BQ/Server_NO_BQ.py`)
-3. ⚙️ Set `SERVERCRON_*` env vars if needed (see table below)
-4. ▶️ From repo root:  
-   `python Server_NO_BQ/Server_NO_BQ.py`  
-   Open the URL printed in the terminal.
+```bash
+python Server.py
+```
 
-## 📂 Repository layout
+**No BigQuery (NO‑BQ package only):**
 
-| Path | Description |
-|------|-------------|
-| `Server_NO_BQ/Server_NO_BQ.py` | 🧠 Flask app entrypoint |
-| `Server_NO_BQ/Server.html` | 🎨 Panel template |
-| `Server_NO_BQ/server.css` · `server.js` | 🎨 Static assets |
-| `LICENSE` | 📜 MIT |
-| `docs/BIGQUERY.md` | ☁️ Scope note for BQ / mirrors (`Server_NO_BQ/` only) |
+```bash
+python Server_NO_BQ/Server_NO_BQ.py
+```
 
-> 💡 **BigQuery:** this public repo ships **only** `Server_NO_BQ/`. If a pipeline ingested the whole clone by mistake, scope your object prefix to `Server_NO_BQ/` — see `docs/BIGQUERY.md`.
+Open the printed URL. See `SERVERCRON_*` headers inside each entrypoint.
 
-## ⚙️ Environment variables (`SERVERCRON_*`)
+## ⚙️ `SERVERCRON_*` (cheat sheet)
 
 | Variable | Role |
 |----------|------|
 | `SERVERCRON_PANEL_DIR` | Folder with `Server.html` (optional) |
-| `SERVERCRON_DATA_ROOT` | Root for `automacoes/` and `config/modules/` (default `~/Documents/ServerCRON`) |
-| `SERVERCRON_DUO_PORTS` | `1` = two ports; `0` = unified app |
-| `SERVERCRON_UP_PORT` / `SERVERCRON_CRON_PORT` | Ports in duo mode |
-| `SERVERCRON_UNIFIED_PORT` | Unified mode port (email links) |
-| `SERVERCRON_EMAIL_DOMAIN` | Login email suffix (e.g. `@example.com`) |
-| `SERVERCRON_OUTLOOK_MONITOR_MAILBOX` | Outlook store display name (Windows) |
-| `SERVERCRON_OPEN_BROWSER` | `0` to skip opening a browser on startup |
+| `SERVERCRON_DATA_ROOT` | Root for `automacoes/` + `config/modules/` (default `~/Documents/ServerCRON`) |
+| `SERVERCRON_DUO_PORTS` | `1` two ports · `0` unified app |
+| `SERVERCRON_UP_PORT` / `SERVERCRON_CRON_PORT` | Duo ports |
+| `SERVERCRON_UNIFIED_PORT` | Unified port (email links) |
+| `SERVERCRON_EMAIL_DOMAIN` | Login suffix (e.g. `@example.com`) |
+| `SERVERCRON_OUTLOOK_MONITOR_MAILBOX` | Outlook store (Windows) |
+| `SERVERCRON_OPEN_BROWSER` | `0` skip browser |
+| `SERVERCRON_BQ_*` | `Server.py` only — BQ prefix, permissions table, cache TTL |
 
-Legacy `C6_*` names are **not** read anymore.
+## 💼 LinkedIn (EN)
 
-## 💼 LinkedIn blurb (EN)
-
-> I open-sourced **ServerCRON** — a **Flask** portal to run, schedule, and track Python automations in one place, with **Uploaders + Cron** and a local workbook registry.  
-> 🔗 `https://github.com/abobicaduco/ServerCRON`
+> **ServerCRON** — a **Flask** portal for **Uploaders + Cron**, optional **BigQuery**, plus an **offline** build under `Server_NO_BQ/`.  
+> 🔗 https://github.com/abobicaduco/ServerCRON
 
 </details>
 
@@ -148,8 +137,8 @@ Legacy `C6_*` names are **not** read anymore.
 
 ## 📜 License
 
-Released under the [MIT License](LICENSE).
+[MIT License](LICENSE)
 
 ## 🤝 Contributing
 
-Issues and PRs: [GitHub Issues](https://github.com/abobicaduco/ServerCRON/issues).
+[GitHub Issues](https://github.com/abobicaduco/ServerCRON/issues)

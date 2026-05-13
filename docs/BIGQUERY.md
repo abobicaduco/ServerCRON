@@ -1,14 +1,19 @@
-# BigQuery / mirror scope (portfolio)
+# BigQuery & repo layout
 
-Este repositório contém **apenas** o pacote open source em `Server_NO_BQ/` (Flask + painel + registo local em xlsx).
+Este repositório tem **dois modos** de servidor:
 
-- **Não** há pipeline neste repo que envie código para o BigQuery.
-- Se usaste **Cloud Storage → BigQuery** (ou outra ferramenta) e carregaste a **raiz inteira** do clone por engano, restringe o prefixo do objeto para:
+| Caminho | Uso |
+|---------|-----|
+| `Server.py` + `Server.html` / `server.js` / `server.css` na raiz | Stack **com BigQuery** (permissões, registo em BQ, etc.). |
+| `Server_NO_BQ/` | Variante **sem BigQuery** (registo local em `registro_automacoes.xlsx`). |
 
-  `Server_NO_BQ/`
+## Ingestão / pipelines
 
-  Exemplo de wildcard GCS (ajusta bucket e caminho):
+- Se carregas o repositório (ou um zip) para **Cloud Storage → BigQuery** ou ferramentas semelhantes, define o prefixo para **só o que precisas**, por exemplo:
+  - só o pacote no‑BQ: `Server_NO_BQ/**`
+  - ou ficheiros Python concretos: `Server_NO_BQ/**/*.py`
+- Evita indexar `node_modules`, `.git` ou cópias duplicadas desnecessárias — isso costuma ser o que “incha” a carga, não o Git em si.
 
-  `gs://SEU_BUCKET/caminho/Server_NO_BQ/**`
+## Onde está o código sensível a GCP
 
-- Para **permissions / tabelas** que antes apontavam para o monólito `Server.py`, usa apenas artefactos gerados a partir deste pacote ou mantém uma cópia privada do stack completo fora deste repo.
+- Prefixo de dataset e tabela de permissões: variáveis `SERVERCRON_BQ_*` e ficheiro opcional `servercron_bq_dataset_prefix.txt` junto a `Server.py` (ver docstring no ficheiro).
