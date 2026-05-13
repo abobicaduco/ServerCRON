@@ -87,7 +87,9 @@ As mesmas chaves descritas na secção em inglês (`SERVERCRON_PANEL_DIR`, `SERV
 
 ## License
 
-Specify your license in a `LICENSE` file (e.g. MIT) when you publish—this README does not impose one.
+This project is released under the [MIT License](LICENSE).
+
+*(Licença MIT — ver ficheiro `LICENSE`.)*
 
 ## Contributing
 
