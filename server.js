@@ -256,7 +256,8 @@
             if (!frame) return;
             try {
                 const info = await api('/api/server/info');
-                const duo = !!(info && (info.c6_duo_ports === true || String(info.c6_duo_ports).toLowerCase() === 'true' || info.c6_duo_ports === 1));
+                const duoFlag = info.servercron_duo_ports;
+                const duo = !!(info && (duoFlag === true || String(duoFlag).toLowerCase() === 'true' || duoFlag === 1));
                 const rawBase = info && info.uploaders_base_url != null ? String(info.uploaders_base_url).trim() : '';
                 const base = rawBase || window.location.origin;
                 if (hint) hint.classList.toggle('hidden', !duo);

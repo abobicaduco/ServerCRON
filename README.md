@@ -30,6 +30,23 @@ Operations and data teams often juggle dozens of Python scripts—each with its 
 
 For issues and improvements, use **[GitHub Issues](https://github.com/abobicaduco/ServerCRON/issues)**.
 
+### Environment variables (prefix `SERVERCRON_`)
+
+| Variable | Role |
+|----------|------|
+| `SERVERCRON_PANEL_DIR` | Optional override for the folder containing `Server.html` / static assets. |
+| `SERVERCRON_DATA_ROOT` | Base directory for `automacoes/` and `config/modules/` (default: `~/Documents/ServerCRON`). |
+| `SERVERCRON_DUO_PORTS` | `1` = separate Uploaders and Cron ports; `0` = single unified app (default). |
+| `SERVERCRON_UP_PORT` / `SERVERCRON_CRON_PORT` | Ports when duo mode is enabled. |
+| `SERVERCRON_UNIFIED_PORT` | Port used in unified mode for links in e-mails. |
+| `SERVERCRON_UNIFIED_PORTAL` | Internal flag for unified routing (set by the app). |
+| `SERVERCRON_EMAIL_DOMAIN` | Login e-mail suffix (default `@example.com`). |
+| `SERVERCRON_OUTLOOK_MONITOR_MAILBOX` | Outlook store display name for monitoring (Windows / Outlook COM). |
+| `SERVERCRON_OPEN_BROWSER` | Set to `0` to skip opening a browser on startup. |
+| `SERVERCRON_BQ_*` | BigQuery dataset prefix, permissions table, cache TTLs (`Server.py` only). |
+
+Legacy `C6_*` environment names are **not** read anymore; rename them to the `SERVERCRON_*` names above.
+
 ### LinkedIn blurb (EN)
 
 > I open-sourced **ServerCRON** — a Flask-based portal to run, schedule, and monitor Python automations from one place (with optional BigQuery and a no-cloud variant). If your team lives in scripts and spreadsheets, this might save you a week of internal tooling. Repo: `github.com/abobicaduco/ServerCRON`
@@ -57,6 +74,10 @@ Equipes de operações e dados costumam ter dezenas de scripts Python—cada um 
 4. Execute `Server.py` ou `Server_NO_BQ/Server_NO_BQ.py` e abra a URL indicada no terminal.
 
 Dúvidas e melhorias: **[GitHub Issues](https://github.com/abobicaduco/ServerCRON/issues)**.
+
+### Variáveis de ambiente (prefixo `SERVERCRON_`)
+
+As mesmas chaves descritas na secção em inglês (`SERVERCRON_PANEL_DIR`, `SERVERCRON_DATA_ROOT`, `SERVERCRON_DUO_PORTS`, portas, e-mail, BigQuery em `Server.py`, etc.). Nomes antigos `C6_*` deixaram de ser lidos — use só `SERVERCRON_*`.
 
 ### Texto para LinkedIn (PT-BR)
 

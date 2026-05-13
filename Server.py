@@ -9,9 +9,9 @@ Painel: `Server.html` (vistas Cron + Uploaders via `portal_view`). Assets: `serv
 Regenerar o HTML/CSS/JS a partir dos ficheiros antigos (se existirem no repo):
     python tools/emit_server_bundle.py
 
-Modos: (1) predefinido — uma porta (C6_DUO_PORTS=0): Uploaders em / e Cron em /cron/, mesma sessão; (2) opcional — C6_DUO_PORTS=1 com C6_UP_PORT / C6_CRON_PORT.
+Modos: (1) predefinido — uma porta (SERVERCRON_DUO_PORTS=0): Uploaders em / e Cron em /cron/, mesma sessão; (2) opcional — SERVERCRON_DUO_PORTS=1 com SERVERCRON_UP_PORT / SERVERCRON_CRON_PORT.
 Dados do Cron (BigQuery + sqlite): mesma pasta que este ficheiro (`server_cron.sqlite`; legado: nome antigo com prefixo ser+vidor_cron.sqlite).
-Tabela de permissões no BQ: default ``… .server``; override: env ``C6_BQ_PERMISSIONS_TABLE`` (ex.: ``servercron`` ou ``proj.dataset.tabela``).
+Tabela de permissões no BQ: default ``… .server``; override: env ``SERVERCRON_BQ_PERMISSIONS_TABLE`` (ex.: ``servercron`` ou ``proj.dataset.tabela``).
 """
 from __future__ import annotations
 
@@ -22,10 +22,10 @@ from pathlib import Path
 # Operator defaults when this process is the main script — must run before PANEL_HTML_DIR.
 if __name__ == "__main__":
     _op_root = Path(__file__).resolve().parent
-    os.environ.setdefault("C6_SERVER_PANEL_DIR", str(_op_root))
-    os.environ.setdefault("C6_DUO_PORTS", "0")
-    os.environ.setdefault("C6_UP_PORT", "5001")
-    os.environ.setdefault("C6_CRON_PORT", "5002")
+    os.environ.setdefault("SERVERCRON_PANEL_DIR", str(_op_root))
+    os.environ.setdefault("SERVERCRON_DUO_PORTS", "0")
+    os.environ.setdefault("SERVERCRON_UP_PORT", "5001")
+    os.environ.setdefault("SERVERCRON_CRON_PORT", "5002")
 
 import json
 import logging
@@ -87,11 +87,7 @@ def _env_truthy(name: str) -> bool:
     return str(os.environ.get(name, "")).lower() in ("1", "true", "yes")
 
 
-_LEGACY_C6_PANEL_ENV = "C6_SER" + "VIDOR_PANEL_DIR"
-_p_dir = (
-    (os.environ.get("C6_SERVER_PANEL_DIR") or "").strip()
-    or (os.environ.get(_LEGACY_C6_PANEL_ENV) or "").strip()
-)
+_p_dir = (os.environ.get("SERVERCRON_PANEL_DIR") or "").strip()
 PANEL_HTML_DIR: Path = Path(_p_dir) if _p_dir else SCRIPT_DIR
 if not PANEL_HTML_DIR.is_dir():
     PANEL_HTML_DIR = SCRIPT_DIR
@@ -119,13 +115,10 @@ TIMEZONE = pytz.timezone("America/Sao_Paulo")
 START_TIME = datetime.now(TIMEZONE).replace(microsecond=0)
 
 HOME = Path.home()
-# Corporate paths — no .env file; Path.home() matches the logged-in Windows profile (e.g. carlos.lsilva).
-PATH_CELULA: Path = (
-    HOME
-    / "C6 CTVM LTDA, BANCO C6 S.A. e C6 HOLDING S.A"
-    / "Mensageria e Cargas Operacionais - 11.CelulaPython"
-)
-GRACILIANO_MODULES: Path = PATH_CELULA / "graciliano" / "modules"
+# Data root for automations and shared config (default: ~/Documents/ServerCRON). Override with SERVERCRON_DATA_ROOT (absolute path).
+_data_root_raw = (os.environ.get("SERVERCRON_DATA_ROOT") or "").strip()
+DATA_ROOT: Path = Path(_data_root_raw) if _data_root_raw else (HOME / "Documents" / "ServerCRON")
+CONFIG_MODULES_DIR: Path = DATA_ROOT / "config" / "modules"
 
 
 def _prefer_new_home_file(parent: Path, new_name: str, legacy_suffix: str) -> Path:
@@ -139,19 +132,18 @@ def _prefer_new_home_file(parent: Path, new_name: str, legacy_suffix: str) -> Pa
     return new_p
 
 
-BASE_PATH: Path = PATH_CELULA / "graciliano" / "automacoes"
+BASE_PATH: Path = DATA_ROOT / "automacoes"
 # Inbox of this Outlook mailbox (Store.DisplayName in the left tree). If env not set, "Monitoracao Python". If set to empty string, profile default Inbox.
-_mbx = os.environ.get("C6_OUTLOOK_MONITOR_MAILBOX")
+_mbx = os.environ.get("SERVERCRON_OUTLOOK_MONITOR_MAILBOX")
 OUTLOOK_MONITOR_MAILBOX_NAME: str = "Monitoracao Python" if _mbx is None else _mbx.strip()
 del _mbx
-# BigQuery project.dataset for c6 tables (server, registro_automacoes, …).
+# BigQuery project.dataset for automation tables (server, registro_automacoes, …).
 #   server: Uploaders (users, level_access, folder_access) + e-mail destinatarios
-#   registro_automacoes: catalogo de robos e crons (python_name, cron, is_active, …)
-# Nao junte "datalab-… .ADMINISTRACAO_…" numa so string literal: o build public substitui esse padrao.
-#   Override: C6_BQ_DATASET_PREFIX, ou ficheiro de uma linha c6_bq_dataset_prefix.txt junto a este .py
-_BQ_P1: str = "datalab-pagamentos"
-_BQ_P2: str = "ADMINISTRACAO_CELULA_PYTHON"
-_BQ_PREFIX_FILE: Path = SCRIPT_DIR / "c6_bq_dataset_prefix.txt"
+#   registro_automacoes: catalog of jobs and crons (python_name, cron, is_active, …)
+#   Override: SERVERCRON_BQ_DATASET_PREFIX, or one-line file servercron_bq_dataset_prefix.txt next to this script.
+_BQ_P1: str = "your_gcp_project"
+_BQ_P2: str = "your_automation_dataset"
+_BQ_PREFIX_FILE: Path = SCRIPT_DIR / "servercron_bq_dataset_prefix.txt"
 
 
 def _read_bq_prefix_from_file(path: Path) -> str:
@@ -170,7 +162,7 @@ def _read_bq_prefix_from_file(path: Path) -> str:
 
 
 def _resolve_bq_dataset_prefix() -> str:
-    envv = (os.environ.get("C6_BQ_DATASET_PREFIX") or "").strip()
+    envv = (os.environ.get("SERVERCRON_BQ_DATASET_PREFIX") or "").strip()
     if envv:
         return envv
     from_file = _read_bq_prefix_from_file(_BQ_PREFIX_FILE)
@@ -187,10 +179,10 @@ def _permissions_bq_table_id() -> str:
 
     Default: ``{dataset}.server``. Override with env:
 
-    - ``C6_BQ_PERMISSIONS_TABLE=server`` or ``servercron`` → suffix under ``BQ_DATASET_PREFIX``
-    - ``C6_BQ_PERMISSIONS_TABLE=proj.dataset.server`` → full table id (two or more dots)
+    - ``SERVERCRON_BQ_PERMISSIONS_TABLE=server`` or ``servercron`` → suffix under ``BQ_DATASET_PREFIX``
+    - ``SERVERCRON_BQ_PERMISSIONS_TABLE=proj.dataset.server`` → full table id (two or more dots)
     """
-    env = (os.environ.get("C6_BQ_PERMISSIONS_TABLE") or "").strip()
+    env = (os.environ.get("SERVERCRON_BQ_PERMISSIONS_TABLE") or "").strip()
     if not env:
         return f"{BQ_DATASET_PREFIX}.server"
     if env.count(".") >= 2:
@@ -203,10 +195,10 @@ TABLE_SERVER: str = _permissions_bq_table_id()
 TABLE_REGISTRO_AUTOMAOES: str = f"{BQ_DATASET_PREFIX}.registro_automacoes"
 # Below this age (seconds) the in-memory copy is "fresh". Beyond it, still serve stale up to STALE_MAX while a background thread refreshes BigQuery (keeps token/login responsive under load).
 _SERVERCRON_CACHE_TTL_SEC: float = float(
-    (os.environ.get("C6_BQ_PERMS_FRESH_TTL_SEC") or "120").strip() or 120
+    (os.environ.get("SERVERCRON_BQ_PERMS_FRESH_TTL_SEC") or "120").strip() or 120
 )
 _SERVERCRON_STALE_MAX_SEC: float = float(
-    (os.environ.get("C6_BQ_PERMS_STALE_MAX_SEC") or "86400").strip() or 86400
+    (os.environ.get("SERVERCRON_BQ_PERMS_STALE_MAX_SEC") or "86400").strip() or 86400
 )
 _servercron_cache: dict = {"df": None, "loaded_at": 0.0}
 _servercron_bq_lock = threading.Lock()
@@ -226,9 +218,9 @@ DOMAIN: str = _email_domain_suffix()
 
 def _unified_portal_with_cron() -> bool:
     """True when the unified single-port app exposes Cron (mount or same-process link)."""
-    if _env_truthy("C6_DUO_PORTS"):
+    if _env_truthy("SERVERCRON_DUO_PORTS"):
         return False
-    return str(os.environ.get("C6_UNIFIED_PORTAL", "")).lower() in ("1", "true", "yes")
+    return str(os.environ.get("SERVERCRON_UNIFIED_PORTAL", "")).lower() in ("1", "true", "yes")
 # Must differ from ServerCron.py (PORT 5002) when both run on the same host.
 PORT: int = 5001
 DEBUG: bool = False
@@ -238,11 +230,15 @@ MOCK_EMAIL: bool = False
 ADMIN_USERS: list[str] = []
 
 ANALYTICS_DB_PATH: Path = _prefer_new_home_file(
-    GRACILIANO_MODULES, "server_uploaders_analytics.json", "vidor_uploaders_analytics.json"
+    CONFIG_MODULES_DIR, "server_uploaders_analytics.json", "vidor_uploaders_analytics.json"
 )
-LOGO_C6_PATH: Path = GRACILIANO_MODULES / "logo c6.png"
+_BRAND_LOGO_CANDIDATES: tuple[Path, ...] = (
+    CONFIG_MODULES_DIR / "organization_logo.png",
+    CONFIG_MODULES_DIR / "logo.png",
+    PANEL_HTML_DIR / "assets" / "logo.png",
+)
 UPLOADERS_LOG_DIR: Path = (
-    _prefer_new_home_file(GRACILIANO_MODULES, "server_uploaders_logs", "vidor_uploaders_logs")
+    _prefer_new_home_file(CONFIG_MODULES_DIR, "server_uploaders_logs", "vidor_uploaders_logs")
     / START_TIME.strftime("%Y-%m-%d")
 )
 
@@ -282,8 +278,8 @@ class LoggerMaster:
 logger = LoggerMaster.setup()
 if "your_gcp" in BQ_DATASET_PREFIX or "your_dataset" in BQ_DATASET_PREFIX:
     logger.warning(
-        "BigQuery: BQ_DATASET_PREFIX ainda e placeholder. C6: use Server.py do repo (nao public_github), "
-        "ou c6_bq_dataset_prefix.txt junto ao .py, ou C6_BQ_DATASET_PREFIX=datalab-pagamentos.ADMINISTRACAO_CELULA_PYTHON"
+        "BigQuery: BQ_DATASET_PREFIX is still a placeholder. Set SERVERCRON_BQ_DATASET_PREFIX "
+        "or add servercron_bq_dataset_prefix.txt next to this script (project.dataset format)."
     )
 else:
     logger.info("BigQuery dataset prefix: %s", BQ_DATASET_PREFIX)
@@ -1042,7 +1038,7 @@ class OutlookMonitorService:
                         pass
                 logger.warning(
                     "[MONITOR] Caixa '%s' nao encontrada no Outlook. Stores: %s — usando Inbox padrao do perfil. "
-                    "Ajuste o nome (igual ao Outlook) ou C6_OUTLOOK_MONITOR_MAILBOX.",
+                    "Ajuste o nome (igual ao Outlook) ou SERVERCRON_OUTLOOK_MONITOR_MAILBOX.",
                     OUTLOOK_MONITOR_MAILBOX_NAME,
                     names,
                 )
@@ -1169,7 +1165,7 @@ class OutlookMonitorService:
         logger.info("[MONITOR] Serviço de monitoramento do Outlook iniciado.")
         logger.info(
             "[MONITOR] Caixa alvo (Inbox): %s",
-            OUTLOOK_MONITOR_MAILBOX_NAME or "(Inbox padrao do perfil — C6_OUTLOOK_MONITOR_MAILBOX=)",
+            OUTLOOK_MONITOR_MAILBOX_NAME or "(Inbox padrao do perfil — SERVERCRON_OUTLOOK_MONITOR_MAILBOX=)",
         )
         while True:
             try:
@@ -1386,10 +1382,11 @@ app.config["MAX_CONTENT_LENGTH"] = 256 * 1024 * 1024
 
 
 def _serve_uploaders_logo() -> Response:
-    """Organization logo from graciliano/modules (Path.home() layout)."""
-    if not LOGO_C6_PATH.is_file():
-        return Response(status=404)
-    return send_file(LOGO_C6_PATH, mimetype="image/png", max_age=3600)
+    """Brand logo: first existing file under CONFIG_MODULES_DIR or panel assets."""
+    for _logo_path in _BRAND_LOGO_CANDIDATES:
+        if _logo_path.is_file():
+            return send_file(_logo_path, mimetype="image/png", max_age=3600)
+    return Response(status=404)
 
 
 @app.route("/assets/logo.png")
@@ -1488,7 +1485,7 @@ def add_security_headers(response):
 def index():
     cron_embed = request.args.get("cron_embed") == "1"
     # Unified portal: default entrypoint is Cron; Uploaders is accessed via the Uploaders tab (embedded iframe).
-    if not cron_embed and not _env_truthy("C6_DUO_PORTS"):
+    if not cron_embed and not _env_truthy("SERVERCRON_DUO_PORTS"):
         return redirect("/cron/")
     if "username" not in session:
         return render_template(
@@ -2052,14 +2049,14 @@ def _get_local_ip() -> str:
 def _shared_portal_urls() -> dict[str, str]:
     """Canonical LAN links for Uploaders and Cron used in invite e-mails."""
     lan_ip = _get_local_ip()
-    if _env_truthy("C6_DUO_PORTS"):
-        up_port = int((os.environ.get("C6_UP_PORT") or os.environ.get("PORT") or "5001").strip() or "5001")
-        cr_port = int((os.environ.get("C6_CRON_PORT") or "5002").strip() or "5002")
+    if _env_truthy("SERVERCRON_DUO_PORTS"):
+        up_port = int((os.environ.get("SERVERCRON_UP_PORT") or os.environ.get("PORT") or "5001").strip() or "5001")
+        cr_port = int((os.environ.get("SERVERCRON_CRON_PORT") or "5002").strip() or "5002")
         return {
             "uploaders_url_lan": f"http://{lan_ip}:{up_port}/",
             "cron_url_lan": f"http://{lan_ip}:{cr_port}/",
         }
-    unified = int((os.environ.get("C6_UNIFIED_PORT", str(PORT)) or str(PORT)).strip())
+    unified = int((os.environ.get("SERVERCRON_UNIFIED_PORT", str(PORT)) or str(PORT)).strip())
     return {
         "uploaders_url_lan": f"http://{lan_ip}:{unified}/",
         "cron_url_lan": f"http://{lan_ip}:{unified}/cron/",
@@ -2187,13 +2184,13 @@ def _start_browser(url: str) -> None:
 
 
 # EMBEDDED_CRON_MERGED_V1 — env before embedded Cron (CRON_URL_PREFIX read at cron block load)
-if _env_truthy("C6_DUO_PORTS"):
-    os.environ["C6_CRON_URL_PREFIX"] = ""
-    os.environ["C6_UNIFIED_PORTAL"] = "0"
+if _env_truthy("SERVERCRON_DUO_PORTS"):
+    os.environ["SERVERCRON_CRON_URL_PREFIX"] = ""
+    os.environ["SERVERCRON_UNIFIED_PORTAL"] = "0"
 else:
-    os.environ.setdefault("C6_CRON_URL_PREFIX", "/cron")
-    os.environ.setdefault("C6_UNIFIED_PORT", str(PORT))
-    os.environ["C6_UNIFIED_PORTAL"] = "1"
+    os.environ.setdefault("SERVERCRON_CRON_URL_PREFIX", "/cron")
+    os.environ.setdefault("SERVERCRON_UNIFIED_PORT", str(PORT))
+    os.environ["SERVERCRON_UNIFIED_PORTAL"] = "1"
 
 # ======================================================================
 # SERVERCRON (embedded; source: ServerCron/ServerCron.py, MAIN cut)
@@ -2297,7 +2294,6 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 # Ficheiros .sqlite-wal / .sqlite-shm = modo WAL do SQLite (não são “duas bases”, são o mesmo ficheiro).
 # ==============================================================
 _HOME = Path.home()
-_SYNC_ROOT = _HOME / "C6 CTVM LTDA, BANCO C6 S.A. e C6 HOLDING S.A"
 CRON_PATH_SCRIPT_DIR = Path(__file__).resolve().parent
 PATH_SERVER_APP = CRON_PATH_SCRIPT_DIR
 PATH_CRON_SQLITE = _prefer_new_home_file(PATH_SERVER_APP, "server_cron.sqlite", "vidor_cron.sqlite")
@@ -2305,23 +2301,17 @@ PATH_JOBSTORE_SQLITE = PATH_CRON_SQLITE
 PATH_EXECUTION_SQLITE = PATH_CRON_SQLITE
 _db_path = PATH_CRON_SQLITE
 
-# Automacoes: varredura recursiva de .py (COBRANCA, AGRO, MONITORACAO FINANCEIRA/metodos, ...)
-PATH_AUTOMACOES = (
-    _SYNC_ROOT
-    / "Mensageria e Cargas Operacionais - 11.CelulaPython"
-    / "graciliano"
-    / "automacoes"
-)
+PATH_AUTOMACOES = DATA_ROOT / "automacoes"
 
-# HTML (mesma pasta do pacote Server/; optional: C6_SERVER_PANEL_DIR)
+# HTML (same folder as this package; optional: SERVERCRON_PANEL_DIR)
 PATH_DASHBOARD_HTML = CRON_PATH_SCRIPT_DIR / "Server.html"
 if not PATH_DASHBOARD_HTML.is_file():
     _alt_dash = CRON_PATH_SCRIPT_DIR / "ServerCron.html"
     if _alt_dash.is_file():
         PATH_DASHBOARD_HTML = _alt_dash
-_p_c6 = (os.environ.get("C6_SERVER_PANEL_DIR") or "").strip()
-if _p_c6:
-    _p_panel = Path(_p_c6)
+_panel_dir_raw = (os.environ.get("SERVERCRON_PANEL_DIR") or "").strip()
+if _panel_dir_raw:
+    _p_panel = Path(_panel_dir_raw)
     if _p_panel.is_dir():
         for _dash_name in ("Server.html", "ServerCron.html"):
             _dash_try = _p_panel / _dash_name
@@ -2378,10 +2368,10 @@ MAX_RAM_PERCENT           = 90
 DEFAULT_TIMEOUT_SECONDS   = 7200  # 2h
 
 HOST     = "0.0.0.0"
-# Standalone: 5002. When using unified single-port mode (DispatcherMiddleware), C6_UNIFIED_PORT + /cron is used.
+# Standalone: 5002. When using unified single-port mode (DispatcherMiddleware), SERVERCRON_UNIFIED_PORT + /cron is used.
 CRON_STANDALONE_PORT     = 5002
 # Public path prefix e.g. "/cron" when Cron app is mounted under Uploaders (set before import).
-CRON_URL_PREFIX: str = os.environ.get("C6_CRON_URL_PREFIX", "").strip().rstrip("/")
+CRON_URL_PREFIX: str = os.environ.get("SERVERCRON_CRON_URL_PREFIX", "").strip().rstrip("/")
 CRON_TZ_NAME = "America/Sao_Paulo"
 TZ       = pytz.timezone(CRON_TZ_NAME)
 
@@ -3494,10 +3484,10 @@ def _cron_require_admin():
 
 
 def _effective_http_port_for_links() -> int:
-    """Port shown in e-mails/URLs: unified portal uses C6_UNIFIED_PORT, standalone uses PORT."""
+    """Port shown in e-mails/URLs: unified portal uses SERVERCRON_UNIFIED_PORT, standalone uses PORT."""
     if CRON_URL_PREFIX:
         try:
-            return int(os.environ.get("C6_UNIFIED_PORT", "5001").strip() or "5001")
+            return int(os.environ.get("SERVERCRON_UNIFIED_PORT", "5001").strip() or "5001")
         except ValueError:
             return 5001
     return CRON_STANDALONE_PORT
@@ -3853,13 +3843,13 @@ def api_server_info():
     vm = psutil.virtual_memory()
     urls = _cron_access_urls()
     p = _effective_http_port_for_links()
-    duo = _env_truthy("C6_DUO_PORTS")
-    up_port = int((os.environ.get("C6_UP_PORT") or "5001").strip() or 5001)
+    duo = _env_truthy("SERVERCRON_DUO_PORTS")
+    up_port = int((os.environ.get("SERVERCRON_UP_PORT") or "5001").strip() or 5001)
     uploaders_base = "" if not duo else f"http://{_get_local_ip()}:{up_port}"
     return jsonify({
         "version": _SERVER_VERSION,
         "unified_cron_mounted": bool(CRON_URL_PREFIX),
-        "c6_duo_ports": duo,
+        "servercron_duo_ports": duo,
         "uploaders_base_url": uploaders_base,
         "http_link_port": p,
         "hostname": platform.node(),
@@ -4124,13 +4114,13 @@ if __name__ == "__main__":
     host = "0.0.0.0"
     my_ip = _get_local_ip()
 
-    if _env_truthy("C6_DUO_PORTS"):
-        up_port = int((os.environ.get("C6_UP_PORT") or os.environ.get("PORT") or "5001").strip() or 5001)
-        cr_port = int((os.environ.get("C6_CRON_PORT") or "5002").strip() or 5002)
-        os.environ["C6_UNIFIED_PORTAL"] = "0"
+    if _env_truthy("SERVERCRON_DUO_PORTS"):
+        up_port = int((os.environ.get("SERVERCRON_UP_PORT") or os.environ.get("PORT") or "5001").strip() or 5001)
+        cr_port = int((os.environ.get("SERVERCRON_CRON_PORT") or "5002").strip() or 5002)
+        os.environ["SERVERCRON_UNIFIED_PORTAL"] = "0"
         logger.info("=" * 70)
         logger.info(
-            "C6 DUO PORTS — Uploaders :%s | ServerCron :%s (HTML: pasta C6_SERVER_PANEL_DIR se definida)",
+            "SERVERCRON DUO PORTS — Uploaders :%s | ServerCron :%s (HTML: SERVERCRON_PANEL_DIR if set)",
             up_port,
             cr_port,
         )
@@ -4149,7 +4139,7 @@ if __name__ == "__main__":
             waitress_serve(_app, host=host, port=cr_port, threads=6, channel_timeout=300)
 
         threading.Thread(target=_run_cron_http, daemon=True, name="waitress-cron").start()
-        if os.environ.get("C6_OPEN_BROWSER", "1") != "0" and os.environ.get("WERKZEUG_RUN_MAIN", "") != "true":
+        if os.environ.get("SERVERCRON_OPEN_BROWSER", "1") != "0" and os.environ.get("WERKZEUG_RUN_MAIN", "") != "true":
             threading.Timer(0.0, lambda: webbrowser.open(f"http://{my_ip}:{up_port}/")).start()
             threading.Timer(0.45, lambda: webbrowser.open(f"http://{my_ip}:{cr_port}/")).start()
         try:
@@ -4164,20 +4154,20 @@ if __name__ == "__main__":
         _portal_secret = SECRET_KEY
         app.secret_key = _portal_secret
         _app.secret_key = _portal_secret
-        app.config["SESSION_COOKIE_NAME"] = "c6_portal_session"
-        _app.config["SESSION_COOKIE_NAME"] = "c6_portal_session"
+        app.config["SESSION_COOKIE_NAME"] = "servercron_portal_session"
+        _app.config["SESSION_COOKIE_NAME"] = "servercron_portal_session"
         app.config["SESSION_COOKIE_PATH"] = "/"
         _app.config["SESSION_COOKIE_PATH"] = "/"
 
-        unified = int((os.environ.get("C6_UNIFIED_PORT", str(PORT)) or str(PORT)).strip())
+        unified = int((os.environ.get("SERVERCRON_UNIFIED_PORT", str(PORT)) or str(PORT)).strip())
         application = DispatcherMiddleware(app, {"/cron": _app})
-        os.environ["C6_UNIFIED_PORTAL"] = "1"
+        os.environ["SERVERCRON_UNIFIED_PORTAL"] = "1"
 
         logger.info("=" * 70)
-        logger.info("C6 UNIFIED — SERVERUPLOADERS + SERVERCRON (um ficheiro .py, uma porta)")
+        logger.info("SERVERCRON UNIFIED — SERVERUPLOADERS + SERVERCRON (one .py, one port)")
         logger.info("  Uploaders  -> http://%s:%s/", my_ip, unified)
         logger.info("  Cron        -> http://%s:%s/cron/", my_ip, unified)
-        logger.info("  (Sessao unificada: c6_portal_session em / — Envio embutido no Cron.)")
+        logger.info("  (Unified session: servercron_portal_session on / — send flow embedded in Cron.)")
         logger.info("=" * 70)
         _send_startup_access_invite(
             uploaders_url=f"http://{my_ip}:{unified}/",
@@ -4188,7 +4178,7 @@ if __name__ == "__main__":
         t_out2 = threading.Thread(target=OutlookMonitorService.start, daemon=True, name="outlook-monitor")
         t_out2.start()
 
-        if os.environ.get("C6_OPEN_BROWSER", "1") != "0" and os.environ.get("WERKZEUG_RUN_MAIN", "") != "true":
+        if os.environ.get("SERVERCRON_OPEN_BROWSER", "1") != "0" and os.environ.get("WERKZEUG_RUN_MAIN", "") != "true":
             _start_browser(f"http://{my_ip}:{unified}/")
         try:
             waitress_serve(

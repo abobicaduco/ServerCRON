@@ -36,11 +36,11 @@
                         mono: ['JetBrains Mono', 'monospace']
                     },
                     colors: {
-                        c6black: '#000000',
-                        c6dark: '#121212',
-                        c6gray: '#1E1E1E',
-                        c6gold: '#D3AD65',
-                        c6goldHover: '#E6C888',
+                        brandblack: '#000000',
+                        branddark: '#121212',
+                        brandgray: '#1E1E1E',
+                        brandgold: '#D3AD65',
+                        brandgoldHover: '#E6C888',
                     },
                     animation: {
                         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -53,11 +53,11 @@
     {% if portal_view == 'cron' %}
     <style>
         :root, [data-theme="dark"] {
-            --c6-black: #050505;
-            --c6-dark: #121212;
-            --c6-gray: #1E1E1E;
-            --c6-gold: #D4AF37;
-            --c6-yellow: #FFD700;
+            --brand-black: #050505;
+            --brand-dark: #121212;
+            --brand-gray: #1E1E1E;
+            --brand-gold: #D4AF37;
+            --brand-yellow: #FFD700;
             --app-bg: #050505;
             --panel-bg: rgba(255,255,255,0.02);
             --panel-border: rgba(255,255,255,0.05);
@@ -72,7 +72,7 @@
             --text-primary: #0f172a;
             --text-muted: #64748b;
             --sidebar-bg: #ffffff;
-            --c6-gold: #b8860b;
+            --brand-gold: #b8860b;
         }
         body {
             font-family: 'Inter', sans-serif;
@@ -88,7 +88,7 @@
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: #0a0a0a; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--c6-gold); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--brand-gold); }
 
         /* Glassmorphism */
         .glass {
@@ -110,12 +110,12 @@
         /* Sidebar active state */
         .nav-item.active {
             background: rgba(212, 175, 55, 0.1);
-            color: var(--c6-gold);
-            border-right: 3px solid var(--c6-gold);
+            color: var(--brand-gold);
+            border-right: 3px solid var(--brand-gold);
         }
 
         @media (max-width: 1023px) {
-            .nav-item.active { border-right: none; border-left: 3px solid var(--c6-gold); }
+            .nav-item.active { border-right: none; border-left: 3px solid var(--brand-gold); }
         }
 
         /* Mobile sidebar drawer */
@@ -314,8 +314,8 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
         :root {
-            --c6-gold: #D3AD65;
-            --c6-black: #000000;
+            --brand-gold: #D3AD65;
+            --brand-black: #000000;
         }
 
         body {
@@ -349,7 +349,7 @@
         html[data-theme="light"] body[data-app="server-uploaders"] .text-gray-700 {
             color: #64748b !important;
         }
-        html[data-theme="light"] body[data-app="server-uploaders"] .bg-c6gray,
+        html[data-theme="light"] body[data-app="server-uploaders"] .bg-brandgray,
         html[data-theme="light"] body[data-app="server-uploaders"] .bg-black\/30,
         html[data-theme="light"] body[data-app="server-uploaders"] .bg-black\/20,
         html[data-theme="light"] body[data-app="server-uploaders"] .bg-white\/5,
@@ -418,7 +418,7 @@
         html[data-theme="dark"] body[data-app="server-uploaders"] .text-gray-700 {
             color: #64748b !important;
         }
-        html[data-theme="dark"] body[data-app="server-uploaders"] .bg-c6gray,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .bg-brandgray,
         html[data-theme="dark"] body[data-app="server-uploaders"] .bg-black\/30,
         html[data-theme="dark"] body[data-app="server-uploaders"] .bg-black\/20,
         html[data-theme="dark"] body[data-app="server-uploaders"] .bg-white\/5,
@@ -479,7 +479,7 @@
 
         .step-card:hover {
             transform: translateY(-4px);
-            border-color: var(--c6-gold);
+            border-color: var(--brand-gold);
             box-shadow: 0 10px 30px -10px rgba(211, 173, 101, 0.2);
         }
 
@@ -497,7 +497,7 @@
         }
 
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: var(--c6-gold);
+            background: var(--brand-gold);
         }
 
         .terminal-line {
@@ -508,7 +508,7 @@
 
         .terminal-line:hover {
             background: rgba(211, 173, 101, 0.05);
-            border-left-color: var(--c6-gold);
+            border-left-color: var(--brand-gold);
         }
 
         .loader-dots span {
@@ -634,7 +634,7 @@
     {% endif %}
 </head>
 <body data-portal-view="{{ portal_view }}"
- class="{% if portal_view == 'cron' %}antialiased min-h-screen min-h-[100dvh]{% else %}relative min-h-screen min-h-[100dvh] flex flex-col selection:bg-c6gold selection:text-c6black pb-[env(safe-area-inset-bottom,0px)] antialiased{% endif %}"
+ class="{% if portal_view == 'cron' %}antialiased min-h-screen min-h-[100dvh]{% else %}relative min-h-screen min-h-[100dvh] flex flex-col selection:bg-brandgold selection:text-brandblack pb-[env(safe-area-inset-bottom,0px)] antialiased{% endif %}"
  {% if portal_view == 'cron' %}style="background-color: var(--app-bg); color: var(--text-primary);"{% endif %}
  {% if portal_view == 'uploaders' %}data-app="server-uploaders"{% endif %}>
     <div id="wm-c7k" class="wm-caduco-trace" aria-hidden="true" data-z="0"></div>
@@ -654,7 +654,7 @@
         <div class="flex items-center gap-4 sm:gap-6 min-w-0 flex-1">
             <div class="flex items-center gap-3 min-w-0">
                 <img src="{{ url_for('logo_brand') }}" alt="Organization" width="40" height="40" loading="eager"
-                    class="w-10 h-10 shrink-0 object-contain rounded-lg border border-c6gold/40 bg-black/30 shadow-[0_0_15px_rgba(211,173,101,0.15)]" />
+                    class="w-10 h-10 shrink-0 object-contain rounded-lg border border-brandgold/40 bg-black/30 shadow-[0_0_15px_rgba(211,173,101,0.15)]" />
                 <div class="hidden sm:block min-w-0">
                     <h1 class="text-white font-bold text-sm tracking-tight">Server NO-BQ | ServerCRON</h1>
                 </div>
@@ -675,7 +675,7 @@
                 {% if is_admin %}
                 <div class="w-px shrink-0 self-stretch bg-white/10" aria-hidden="true"></div>
                 <button type="button" id="up-admin-reg-sync"
-                    class="shrink-0 self-center rounded-md border border-c6gold/30 bg-c6gold/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-c6gold transition hover:bg-c6gold/20"
+                    class="shrink-0 self-center rounded-md border border-brandgold/30 bg-brandgold/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-brandgold transition hover:bg-brandgold/20"
                     title="Força agora: permissões, cadastro e jobs (mesmo efeito que Sincronizar no Cron)">Sincronizar
                     cadastro</button>
                 {% endif %}
@@ -713,8 +713,8 @@
             <div class="w-full max-w-xl animate-fade-in">
                 <div class="text-center mb-12">
                     <div
-                        class="w-24 h-24 sm:w-28 sm:h-28 bg-c6gold/10 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-c6gold/20">
-                        <i class="fas fa-shield-halved text-4xl sm:text-5xl text-c6gold"></i>
+                        class="w-24 h-24 sm:w-28 sm:h-28 bg-brandgold/10 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-brandgold/20">
+                        <i class="fas fa-shield-halved text-4xl sm:text-5xl text-brandgold"></i>
                     </div>
                     <h2 class="text-4xl sm:text-5xl font-black text-white tracking-tight">Acesso Restrito</h2>
                     <p class="text-gray-500 mt-4 font-medium text-base sm:text-lg max-w-lg mx-auto">Insira seu usuário de rede para autenticação.</p>
@@ -727,11 +727,11 @@
                             Rede</label>
                         <div class="relative group">
                             <div
-                                class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-gray-500 group-focus-within:text-c6gold transition-colors text-lg">
+                                class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-gray-500 group-focus-within:text-brandgold transition-colors text-lg">
                                 <i class="fas fa-at"></i>
                             </div>
                             <input type="text" name="username" placeholder="nome.sobrenome" required
-                                class="block w-full pl-12 pr-36 py-5 text-lg bg-c6gray border border-white/5 rounded-2xl text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-c6gold/50 focus:border-c6gold transition-all font-bold">
+                                class="block w-full pl-12 pr-36 py-5 text-lg bg-brandgray border border-white/5 rounded-2xl text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-brandgold/50 focus:border-brandgold transition-all font-bold">
                             <div class="absolute inset-y-0 right-0 flex items-center pr-5 pointer-events-none">
                                 <span
                                     class="text-sm font-black text-gray-600 uppercase tracking-tighter">@example.com</span>
@@ -740,7 +740,7 @@
                     </div>
 
                     <button type="submit"
-                        class="w-full bg-c6gold hover:bg-c6goldHover text-c6black font-black py-5 rounded-2xl shadow-[0_10px_20px_rgba(211,173,101,0.2)] transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-base">
+                        class="w-full bg-brandgold hover:bg-brandgoldHover text-brandblack font-black py-5 rounded-2xl shadow-[0_10px_20px_rgba(211,173,101,0.2)] transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-base">
                         Solicitar Token <i class="fas fa-paper-plane"></i>
                     </button>
                 </form>
@@ -751,8 +751,8 @@
             <div class="w-full max-w-xl animate-fade-in">
                 <div class="text-center mb-12">
                     <div
-                        class="w-24 h-24 sm:w-28 sm:h-28 bg-c6gold/10 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-c6gold/20">
-                        <i class="fas fa-key text-4xl sm:text-5xl text-c6gold"></i>
+                        class="w-24 h-24 sm:w-28 sm:h-28 bg-brandgold/10 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-brandgold/20">
+                        <i class="fas fa-key text-4xl sm:text-5xl text-brandgold"></i>
                     </div>
                     <h2 class="text-4xl sm:text-5xl font-black text-white tracking-tight">Verificação</h2>
                     <p class="text-gray-500 mt-4 font-medium text-base sm:text-lg max-w-lg mx-auto">Enviamos um código de 6 dígitos para seu e-mail.</p>
@@ -763,10 +763,10 @@
                     <input type="hidden" name="username" value="{{ username }}">
                     <div class="flex justify-center">
                         <input type="text" name="token" maxlength="6" required autocomplete="off" placeholder="000000"
-                            class="block w-full max-w-[min(100%,22rem)] sm:max-w-[26rem] text-center tracking-[0.45em] text-4xl sm:text-5xl py-6 sm:py-7 bg-c6gray border-2 border-white/5 rounded-2xl text-white focus:outline-none focus:border-c6gold transition-all font-black shadow-inner">
+                            class="block w-full max-w-[min(100%,22rem)] sm:max-w-[26rem] text-center tracking-[0.45em] text-4xl sm:text-5xl py-6 sm:py-7 bg-brandgray border-2 border-white/5 rounded-2xl text-white focus:outline-none focus:border-brandgold transition-all font-black shadow-inner">
                     </div>
                     <button type="submit"
-                        class="w-full bg-c6gold hover:bg-c6goldHover text-c6black font-black py-5 rounded-2xl shadow-[0_10px_20px_rgba(211,173,101,0.2)] transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-base">
+                        class="w-full bg-brandgold hover:bg-brandgoldHover text-brandblack font-black py-5 rounded-2xl shadow-[0_10px_20px_rgba(211,173,101,0.2)] transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-base">
                         Confirmar Acesso <i class="fas fa-lock-open"></i>
                     </button>
                     <p class="text-center text-xs sm:text-sm text-gray-600 font-bold uppercase tracking-widest">O token expira
@@ -777,7 +777,7 @@
         {% elif page == 'upload' %}
 
         <button type="button" id="sidebar-toggle" aria-controls="uploaders-sidebar"
-            class="lg:hidden fixed bottom-5 right-5 z-[60] w-14 h-14 rounded-2xl bg-c6gold text-c6black shadow-2xl flex items-center justify-center touch-manipulation border border-c6gold/50">
+            class="lg:hidden fixed bottom-5 right-5 z-[60] w-14 h-14 rounded-2xl bg-brandgold text-brandblack shadow-2xl flex items-center justify-center touch-manipulation border border-brandgold/50">
             <i class="fas fa-bars text-lg" aria-hidden="true"></i>
             <span class="sr-only">Abrir atalhos</span>
         </button>
@@ -790,8 +790,8 @@
                 <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Atalhos Rápidos</h3>
                 <div class="grid grid-cols-1 gap-3">
                     <button onclick="shareServer()"
-                        class="flex items-center justify-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-c6gold/30 hover:bg-c6gold/5 transition-all group">
-                        <i class="fas fa-share-nodes text-gray-400 group-hover:text-c6gold"></i>
+                        class="flex items-center justify-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-brandgold/30 hover:bg-brandgold/5 transition-all group">
+                        <i class="fas fa-share-nodes text-gray-400 group-hover:text-brandgold"></i>
                         <span class="text-[9px] font-black text-gray-500 group-hover:text-white uppercase">Compartilhar
                             Server</span>
                     </button>
@@ -809,9 +809,9 @@
                         {% if user_prefs.recent %}
                         {% for path in user_prefs.recent %}
                         <button type="button" onclick="selectFolder(this.dataset.path)" data-path="{{ path }}"
-                            class="w-full text-left p-3 rounded-xl bg-white/2 border border-white/5 hover:border-c6gold/20 hover:bg-white/5 transition-all flex items-center gap-3 group">
+                            class="w-full text-left p-3 rounded-xl bg-white/2 border border-white/5 hover:border-brandgold/20 hover:bg-white/5 transition-all flex items-center gap-3 group">
                             <div
-                                class="w-8 h-8 rounded-lg bg-c6gray flex items-center justify-center text-[10px] text-gray-500 group-hover:text-c6gold transition-colors">
+                                class="w-8 h-8 rounded-lg bg-brandgray flex items-center justify-center text-[10px] text-gray-500 group-hover:text-brandgold transition-colors">
                                 <i class="fas fa-folder"></i>
                             </div>
                             <span class="text-[11px] font-bold text-gray-400 group-hover:text-white truncate">{{
@@ -834,9 +834,9 @@
                         {% if user_prefs.frequent %}
                         {% for path in user_prefs.frequent %}
                         <button type="button" onclick="selectFolder(this.dataset.path)" data-path="{{ path }}"
-                            class="w-full text-left p-3 rounded-xl bg-white/2 border border-white/5 hover:border-c6gold/20 hover:bg-white/5 transition-all flex items-center gap-3 group">
+                            class="w-full text-left p-3 rounded-xl bg-white/2 border border-white/5 hover:border-brandgold/20 hover:bg-white/5 transition-all flex items-center gap-3 group">
                             <div
-                                class="w-8 h-8 rounded-lg bg-c6gray flex items-center justify-center text-[10px] text-gray-500 group-hover:text-c6gold transition-colors">
+                                class="w-8 h-8 rounded-lg bg-brandgray flex items-center justify-center text-[10px] text-gray-500 group-hover:text-brandgold transition-colors">
                                 <i class="fas fa-bolt"></i>
                             </div>
                             <span class="text-[11px] font-bold text-gray-400 group-hover:text-white truncate">{{
@@ -888,7 +888,7 @@
                         <div class="relative mb-6">
                             <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-xs"></i>
                             <input type="text" id="folder-search" placeholder="Filtrar processos..."
-                                class="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/5 rounded-xl text-sm text-white placeholder-gray-600 focus:outline-none focus:border-c6gold/50 transition-all">
+                                class="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/5 rounded-xl text-sm text-white placeholder-gray-600 focus:outline-none focus:border-brandgold/50 transition-all">
                         </div>
 
                         <div class="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-4" id="folder-tree">
@@ -900,7 +900,7 @@
                                         class="text-[10px] font-black text-gray-500 uppercase tracking-widest group-hover:text-gray-300">{{
                                         root_name }}</span>
                                     <i
-                                        class="fas fa-chevron-down text-[10px] text-gray-700 group-hover:text-c6gold transition-all"></i>
+                                        class="fas fa-chevron-down text-[10px] text-gray-700 group-hover:text-brandgold transition-all"></i>
                                 </button>
                                 <div class="mt-2 space-y-1 area-content">
                                     {% for path, name in subpastas.items() %}
@@ -932,11 +932,11 @@
                         </div>
 
                         <div id="drop-zone"
-                            class="flex-grow border-2 border-dashed border-white/10 rounded-[24px] flex flex-col items-center justify-center p-6 text-center cursor-pointer hover:bg-white/5 hover:border-c6gold/30 transition-all group">
+                            class="flex-grow border-2 border-dashed border-white/10 rounded-[24px] flex flex-col items-center justify-center p-6 text-center cursor-pointer hover:bg-white/5 hover:border-brandgold/30 transition-all group">
                             <input type="file" name="files" id="file-upload" class="hidden" multiple>
                             <div
                                 class="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                <i class="fas fa-cloud-arrow-up text-3xl text-gray-600 group-hover:text-c6gold"></i>
+                                <i class="fas fa-cloud-arrow-up text-3xl text-gray-600 group-hover:text-brandgold"></i>
                             </div>
                             <p class="text-white font-bold text-sm mb-1">Arraste um ou mais arquivos</p>
                             <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">qualquer extensão &mdash; ou clique para buscar</p>
@@ -946,8 +946,8 @@
                             class="hidden flex-grow flex flex-col items-center justify-center p-6 text-center animate-fade-in">
                             <div class="relative mb-6">
                                 <div
-                                    class="w-24 h-24 rounded-3xl bg-c6gold/10 border border-c6gold/20 flex items-center justify-center">
-                                    <i class="fas fa-file-lines text-4xl text-c6gold"></i>
+                                    class="w-24 h-24 rounded-3xl bg-brandgold/10 border border-brandgold/20 flex items-center justify-center">
+                                    <i class="fas fa-file-lines text-4xl text-brandgold"></i>
                                 </div>
                                 <button type="button" id="remove-file"
                                     class="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors">
@@ -992,10 +992,10 @@
 
                             <div id="step3-ready" class="hidden space-y-6 animate-fade-in">
                                 <div
-                                    class="w-24 h-24 rounded-full border-4 border-c6gold/30 flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(211,173,101,0.1)] relative">
-                                    <i class="fas fa-play text-3xl text-c6gold translate-x-1"></i>
+                                    class="w-24 h-24 rounded-full border-4 border-brandgold/30 flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(211,173,101,0.1)] relative">
+                                    <i class="fas fa-play text-3xl text-brandgold translate-x-1"></i>
                                     <div
-                                        class="absolute inset-0 rounded-full border-4 border-c6gold border-t-transparent animate-spin">
+                                        class="absolute inset-0 rounded-full border-4 border-brandgold border-t-transparent animate-spin">
                                     </div>
                                 </div>
                                 <p class="text-sm text-white font-black uppercase tracking-widest">Sistemas Validados</p>
@@ -1007,7 +1007,7 @@
 
                         <div class="mt-auto space-y-3">
                             <button type="button" id="btn-upload-run" disabled
-                                class="touch-manipulation w-full py-5 bg-c6gold disabled:bg-gray-800 disabled:text-gray-600 text-c6black font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] disabled:pointer-events-none">
+                                class="touch-manipulation w-full py-5 bg-brandgold disabled:bg-gray-800 disabled:text-gray-600 text-brandblack font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] disabled:pointer-events-none">
                                 <span id="btn-upload-run-label">Upload + Start</span>
                                 <i id="btn-upload-run-icon" class="fas fa-rocket"></i>
                             </button>
@@ -1025,13 +1025,13 @@
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-4">
                         <div
-                            class="w-12 h-12 rounded-2xl bg-c6gray border border-white/10 flex items-center justify-center text-c6gold">
+                            class="w-12 h-12 rounded-2xl bg-brandgray border border-white/10 flex items-center justify-center text-brandgold">
                             <i class="fas fa-terminal"></i>
                         </div>
                         <div>
                             <h2 class="text-2xl font-black text-white tracking-tight">Console de Execução</h2>
                             <p id="running-script-name"
-                                class="text-c6gold text-[10px] font-black uppercase tracking-widest">Iniciando...</p>
+                                class="text-brandgold text-[10px] font-black uppercase tracking-widest">Iniciando...</p>
                         </div>
                     </div>
                     <div id="status-badge"
@@ -1063,7 +1063,7 @@
 
                 <div id="terminal-actions" class="hidden flex justify-center pt-6">
                     <button onclick="location.reload()"
-                        class="bg-c6gold hover:bg-c6goldHover text-c6black font-black px-12 py-4 rounded-2xl shadow-2xl transition-all flex items-center gap-3 uppercase tracking-widest text-sm">
+                        class="bg-brandgold hover:bg-brandgoldHover text-brandblack font-black px-12 py-4 rounded-2xl shadow-2xl transition-all flex items-center gap-3 uppercase tracking-widest text-sm">
                         <i class="fas fa-rotate-left"></i> Novo Processo
                     </button>
                 </div>
@@ -1097,7 +1097,7 @@
                     <button onclick="location.reload()"
                         class="px-10 py-4 bg-white/5 text-white font-black rounded-2xl border border-white/10 uppercase tracking-widest text-xs">Voltar</button>
                     <a id="btn-contato" href="#"
-                        class="px-10 py-4 bg-c6gold text-c6black font-black rounded-2xl shadow-xl uppercase tracking-widest text-xs flex items-center justify-center gap-2">
+                        class="px-10 py-4 bg-brandgold text-brandblack font-black rounded-2xl shadow-xl uppercase tracking-widest text-xs flex items-center justify-center gap-2">
                         <i class="fas fa-envelope"></i> Notificar TI
                     </a>
                 </div>
@@ -1112,7 +1112,7 @@
         class="hidden fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-fade-in">
         <div
             class="w-full max-w-lg glass rounded-[40px] p-10 border border-white/10 shadow-2xl relative overflow-hidden">
-            <div class="absolute -top-20 -right-20 w-40 h-40 bg-c6gold/10 blur-[60px] rounded-full"></div>
+            <div class="absolute -top-20 -right-20 w-40 h-40 bg-brandgold/10 blur-[60px] rounded-full"></div>
 
             <div class="text-center mb-10">
                 <h3 class="text-2xl font-black text-white tracking-tight">Modo de Execução</h3>
@@ -1121,7 +1121,7 @@
 
             <div class="space-y-4">
                 <button id="modal-upload-run"
-                    class="w-full p-6 rounded-3xl bg-c6gold hover:bg-c6goldHover transition-all flex items-center gap-6 group">
+                    class="w-full p-6 rounded-3xl bg-brandgold hover:bg-brandgoldHover transition-all flex items-center gap-6 group">
                     <div
                         class="w-12 h-12 rounded-2xl bg-black/20 flex items-center justify-center text-black group-hover:scale-110 transition-transform">
                         <i class="fas fa-bolt"></i>
@@ -1171,7 +1171,7 @@
             const colors = {
                 success: 'bg-green-500 border-green-400/30',
                 error: 'bg-red-500 border-red-400/30',
-                info: 'bg-c6gray border-white/10'
+                info: 'bg-brandgray border-white/10'
             };
 
             const icons = {
@@ -1405,15 +1405,15 @@
 
                 // Update UI
                 document.querySelectorAll('.folder-btn').forEach(b => {
-                    b.classList.remove('bg-c6gold/10', 'text-white', 'border-c6gold/20');
-                    b.querySelector('div').classList.remove('bg-c6gold');
+                    b.classList.remove('bg-brandgold/10', 'text-white', 'border-brandgold/20');
+                    b.querySelector('div').classList.remove('bg-brandgold');
                     b.querySelector('div').classList.add('bg-gray-800');
                 });
 
                 if (element) {
-                    element.classList.add('bg-c6gold/10', 'text-white', 'border-c6gold/20');
+                    element.classList.add('bg-brandgold/10', 'text-white', 'border-brandgold/20');
                     element.querySelector('div').classList.remove('bg-gray-800');
-                    element.querySelector('div').classList.add('bg-c6gold');
+                    element.querySelector('div').classList.add('bg-brandgold');
                 }
 
                 document.getElementById('step2-info').innerHTML = `Destino: <b class="text-white">${name}</b>`;
