@@ -1,0 +1,2206 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark" class="{% if portal_view != 'cron' and cron_embed|default(false) %}cron-upload-embed{% endif %}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="application-name" content="Server | ServerCRON">
+    <meta name="theme-color" content="#0A0A0A">
+    <title>Server | ServerCRON</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% if portal_view == 'uploaders' %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% endif %}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='server.css') }}" />
+    <script src="{{ url_for('static', filename='server.js') }}" defer></script>
+    {% if portal_view == 'cron' %}
+    <script>
+      (function () {
+        var p = window.location.pathname || "/";
+        var href = (p === "/cron" || p.indexOf("/cron/") === 0) ? "/cron/" : "/";
+        var b = document.createElement("base");
+        b.setAttribute("href", href);
+        document.head.appendChild(b);
+      })();
+    </script>
+    {% endif %}
+    {% if portal_view == 'uploaders' %}
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                    colors: {
+                        c6black: '#000000',
+                        c6dark: '#121212',
+                        c6gray: '#1E1E1E',
+                        c6gold: '#D3AD65',
+                        c6goldHover: '#E6C888',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    {% endif %}
+    {% if portal_view == 'cron' %}
+    <style>
+        :root, [data-theme="dark"] {
+            --c6-black: #050505;
+            --c6-dark: #121212;
+            --c6-gray: #1E1E1E;
+            --c6-gold: #D4AF37;
+            --c6-yellow: #FFD700;
+            --app-bg: #050505;
+            --panel-bg: rgba(255,255,255,0.02);
+            --panel-border: rgba(255,255,255,0.05);
+            --text-primary: #f1f5f9;
+            --text-muted: #94a3b8;
+            --sidebar-bg: #0a0a0a;
+        }
+        [data-theme="light"] {
+            --app-bg: #f4f6f9;
+            --panel-bg: #ffffff;
+            --panel-border: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-muted: #64748b;
+            --sidebar-bg: #ffffff;
+            --c6-gold: #b8860b;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--app-bg);
+            color: var(--text-primary);
+        }
+        [data-theme="light"] .shadow-card {
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+        }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--c6-gold); }
+
+        /* Glassmorphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Animations */
+        @keyframes pulse-gold {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.95); }
+        }
+        .pulse-gold { animation: pulse-gold 2s infinite; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Sidebar active state */
+        .nav-item.active {
+            background: rgba(212, 175, 55, 0.1);
+            color: var(--c6-gold);
+            border-right: 3px solid var(--c6-gold);
+        }
+
+        @media (max-width: 1023px) {
+            .nav-item.active { border-right: none; border-left: 3px solid var(--c6-gold); }
+        }
+
+        /* Mobile sidebar drawer */
+        #sidebar.sidebar-open { transform: translateX(0); }
+        #sidebar-backdrop.is-open { opacity: 1; pointer-events: auto; }
+
+        .table-responsive {
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .touch-target { min-height: 44px; min-width: 44px; }
+        .safe-area-pt { padding-top: env(safe-area-inset-top, 0px); }
+
+        #login-overlay { background: linear-gradient(145deg, #0a0a0a 0%, #1a1508 50%, #0a0a0a 100%); }
+        [data-theme="light"] #login-overlay { background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%); }
+        [data-theme="light"] .login-card { background: #fff !important; border-color: #e2e8f0 !important; }
+        [data-theme="light"] .login-title { color: #0f172a; }
+        [data-theme="light"] .login-muted { color: #64748b; }
+        [data-theme="light"] .login-input { border-color: #cbd5e1 !important; background: #f8fafc !important; color: #0f172a !important; }
+        [data-theme="light"] .login-divider { border-color: #e2e8f0 !important; }
+        [data-theme="light"] .login-verify-btn { background: #e2e8f0 !important; color: #0f172a !important; }
+        [data-theme="light"] .login-verify-btn:hover { background: #cbd5e1 !important; }
+
+        [data-theme="light"] ::-webkit-scrollbar-track { background: #e8ecf1; }
+        [data-theme="light"] ::-webkit-scrollbar-thumb { background: #c5cdd8; }
+        [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #9aa5b8; }
+
+        [data-theme="light"] #sidebar {
+            background: #ffffff !important;
+            border-right: 1px solid #e2e8f0 !important;
+            box-shadow: 2px 0 12px rgba(15, 23, 42, 0.04);
+        }
+        [data-theme="light"] #sidebar .text-white { color: #0f172a !important; }
+        [data-theme="light"] #sidebar .text-gray-300 { color: #475569 !important; }
+        [data-theme="light"] #sidebar .text-gray-400 { color: #64748b !important; }
+        [data-theme="light"] #sidebar .text-gray-500 { color: #64748b !important; }
+        [data-theme="light"] #sidebar .border-white\/10 { border-color: #e2e8f0 !important; }
+        [data-theme="light"] #sidebar .bg-white\/5,
+        [data-theme="light"] #sidebar .bg-white\/\[0\.03\] { background: #f8fafc !important; }
+        [data-theme="light"] #sidebar .nav-item:not(.active) { color: #475569 !important; }
+        [data-theme="light"] #sidebar .nav-item.active {
+            background: rgba(184, 134, 11, 0.12) !important;
+            color: #92400e !important;
+            border-right-color: #ca8a04 !important;
+        }
+
+        [data-theme="light"] #main-panel {
+            background: #f4f6f9 !important;
+        }
+        [data-theme="light"] .theme-header-bar {
+            background: rgba(255, 255, 255, 0.92) !important;
+            border-color: #e2e8f0 !important;
+            box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+        }
+        [data-theme="light"] #main-panel .text-white { color: #0f172a !important; }
+        [data-theme="light"] #main-panel .border-white\/5 { border-color: #e2e8f0 !important; }
+        [data-theme="light"] #main-panel .bg-white\/\[0\.02\],
+        [data-theme="light"] #main-panel .bg-white\/\[0\.01\] {
+            background: #ffffff !important;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        }
+        [data-theme="light"] #main-panel .bg-white\/5 { background: #f1f5f9 !important; }
+        [data-theme="light"] #script-search {
+            background: #ffffff !important;
+            border-color: #cbd5e1 !important;
+            color: #0f172a !important;
+        }
+        [data-theme="light"] #script-search::placeholder { color: #94a3b8; }
+        [data-theme="light"] .mobile-bar-cron {
+            background: rgba(255,255,255,0.95) !important;
+            border-color: #e2e8f0 !important;
+        }
+        [data-theme="light"] .mobile-bar-cron .text-white { color: #0f172a !important; }
+        [data-theme="light"] #bq-countdown,
+        [data-theme="light"] #bq-countdown-mobile,
+        [data-theme="light"] #last-refresh,
+        [data-theme="light"] #last-refresh-mobile,
+        [data-theme="light"] #up-bq-countdown {
+            color: #ca8a04 !important;
+        }
+        [data-theme="light"] #last-refresh-label,
+        [data-theme="light"] #last-refresh-mobile-label {
+            color: #ca8a04 !important;
+        }
+
+        [data-theme="light"] .doc-github-btn,
+        [data-theme="light"] .doc-github-link {
+            border-color: #0ea5e9 !important;
+            background: rgba(14, 165, 233, 0.1) !important;
+            color: #0369a1 !important;
+        }
+        [data-theme="light"] .doc-github-btn:hover,
+        [data-theme="light"] .doc-github-link:hover {
+            background: rgba(14, 165, 233, 0.18) !important;
+            color: #0c4a6e !important;
+        }
+
+        /* Tema escuro corporativo (fundo estático) */
+        [data-theme="dark"] body {
+            background-color: var(--app-bg) !important;
+        }
+        [data-theme="dark"] #sidebar {
+            background-color: #0a0a0a !important;
+        }
+        [data-theme="dark"] #main-panel {
+            background-color: #050505 !important;
+        }
+        [data-theme="dark"] .theme-header-bar {
+            background: #0a0a0a !important;
+        }
+        [data-theme="dark"] .mobile-bar-cron {
+            background: #0a0a0a !important;
+        }
+
+        /* Histórico: <select> nativo — evita texto branco sobre fundo branco no dropdown (Chrome/Edge) */
+        #hist-status {
+            color-scheme: dark;
+            background-color: #1a1a1a !important;
+            color: #e2e8f0 !important;
+            border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        }
+        #hist-status option {
+            background-color: #252525;
+            color: #f1f5f9;
+        }
+        [data-theme="light"] #hist-status {
+            color-scheme: light;
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+        }
+        [data-theme="light"] #hist-status option {
+            background-color: #ffffff;
+            color: #0f172a;
+        }
+
+        /* Typography color standardization (Cron view). */
+        html[data-theme="dark"] body {
+            color: #ffffff !important;
+        }
+        html[data-theme="dark"] .text-gray-300,
+        html[data-theme="dark"] .text-gray-400,
+        html[data-theme="dark"] .text-gray-500,
+        html[data-theme="dark"] .text-gray-600,
+        html[data-theme="dark"] .text-slate-300,
+        html[data-theme="dark"] .text-slate-400,
+        html[data-theme="dark"] .text-slate-500 {
+            color: #ffffff !important;
+        }
+        html[data-theme="dark"] .text-yellow-400,
+        html[data-theme="dark"] .text-yellow-500,
+        html[data-theme="dark"] .text-amber-400,
+        html[data-theme="dark"] .text-amber-500,
+        html[data-theme="dark"] .text-red-400,
+        html[data-theme="dark"] .text-red-500 {
+            color: #facc15 !important;
+        }
+
+        html[data-theme="light"] body {
+            color: #111111 !important;
+        }
+        html[data-theme="light"] .text-white,
+        html[data-theme="light"] .text-gray-300,
+        html[data-theme="light"] .text-gray-400,
+        html[data-theme="light"] .text-gray-500,
+        html[data-theme="light"] .text-gray-600,
+        html[data-theme="light"] .text-slate-300,
+        html[data-theme="light"] .text-slate-400,
+        html[data-theme="light"] .text-slate-500,
+        html[data-theme="light"] .text-yellow-400,
+        html[data-theme="light"] .text-yellow-500,
+        html[data-theme="light"] .text-amber-400,
+        html[data-theme="light"] .text-amber-500 {
+            color: #111111 !important;
+        }
+        html[data-theme="light"] .text-red-400,
+        html[data-theme="light"] .text-red-500 {
+            color: #dc2626 !important;
+        }
+        html[data-theme="light"] .font-mono {
+            color: inherit !important;
+        }
+        html[data-theme="light"] #bq-countdown,
+        html[data-theme="light"] #bq-countdown-mobile,
+        html[data-theme="light"] #up-bq-countdown,
+        html[data-theme="light"] #last-refresh,
+        html[data-theme="light"] #last-refresh-mobile,
+        html[data-theme="light"] #last-refresh-label,
+        html[data-theme="light"] #last-refresh-mobile-label {
+            color: #dc2626 !important;
+        }
+    </style>
+    {% endif %}
+    {% if portal_view == 'uploaders' %}
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        :root {
+            --c6-gold: #D3AD65;
+            --c6-black: #000000;
+        }
+
+        body {
+            background-color: #0A0A0A;
+            color: #E5E5E5;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Tema escuro corporativo (fundo estático) */
+        [data-theme="dark"] body {
+            background-color: #0A0A0A !important;
+        }
+
+        /* Uploaders — tema claro corporativo (fundo claro + texto escuro). */
+        html[data-theme="light"] body[data-app="server-uploaders"] {
+            background-color: #f4f6f9 !important;
+            color: #0f172a !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] .glass {
+            background: #ffffff !important;
+            border-color: #e2e8f0 !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-white {
+            color: #0f172a !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-gray-400 {
+            color: #475569 !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-gray-500,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-gray-600,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-gray-700 {
+            color: #64748b !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] .bg-c6gray,
+        html[data-theme="light"] body[data-app="server-uploaders"] .bg-black\/30,
+        html[data-theme="light"] body[data-app="server-uploaders"] .bg-black\/20,
+        html[data-theme="light"] body[data-app="server-uploaders"] .bg-white\/5,
+        html[data-theme="light"] body[data-app="server-uploaders"] .bg-white\/2,
+        html[data-theme="light"] body[data-app="server-uploaders"] .bg-white\/\[0\.04\] {
+            background-color: #f8fafc !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] .border-white\/5,
+        html[data-theme="light"] body[data-app="server-uploaders"] .border-white\/10 {
+            border-color: #e2e8f0 !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] input,
+        html[data-theme="light"] body[data-app="server-uploaders"] textarea,
+        html[data-theme="light"] body[data-app="server-uploaders"] select {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] input::placeholder,
+        html[data-theme="light"] body[data-app="server-uploaders"] textarea::placeholder {
+            color: #94a3b8 !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] #terminal-output {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #e2e8f0 !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] #uploaders-sidebar {
+            background: #ffffff !important;
+            border-right-color: #e2e8f0 !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] #uploaders-sidebar button {
+            background: #ffffff !important;
+            border-color: #e2e8f0 !important;
+            color: #0f172a !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] #uploaders-sidebar button:hover {
+            background: #f8fafc !important;
+            color: #0f172a !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] #uploaders-sidebar button span,
+        html[data-theme="light"] body[data-app="server-uploaders"] #uploaders-sidebar .group-hover\:text-white {
+            color: #0f172a !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] #uploaders-sidebar i {
+            color: #475569 !important;
+        }
+
+        /* Uploaders — tema escuro corporativo (inverso do claro). */
+        html[data-theme="dark"] body[data-app="server-uploaders"] {
+            background-color: #0a0a0a !important;
+            color: #e5e7eb !important;
+        }
+        html[data-theme="dark"] body[data-app="server-uploaders"] .glass {
+            background: #121212 !important;
+            border-color: rgba(255, 255, 255, 0.08) !important;
+        }
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-white {
+            color: #f8fafc !important;
+        }
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-gray-400 {
+            color: #94a3b8 !important;
+        }
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-gray-500,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-gray-600,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-gray-700 {
+            color: #64748b !important;
+        }
+        html[data-theme="dark"] body[data-app="server-uploaders"] .bg-c6gray,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .bg-black\/30,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .bg-black\/20,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .bg-white\/5,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .bg-white\/2,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .bg-white\/\[0\.04\] {
+            background-color: #1a1a1a !important;
+        }
+        html[data-theme="dark"] body[data-app="server-uploaders"] .border-white\/5,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .border-white\/10 {
+            border-color: rgba(255, 255, 255, 0.10) !important;
+        }
+        html[data-theme="dark"] body[data-app="server-uploaders"] input,
+        html[data-theme="dark"] body[data-app="server-uploaders"] textarea,
+        html[data-theme="dark"] body[data-app="server-uploaders"] select {
+            background-color: #121212 !important;
+            color: #f8fafc !important;
+            border-color: rgba(255, 255, 255, 0.14) !important;
+        }
+        html[data-theme="dark"] body[data-app="server-uploaders"] input::placeholder,
+        html[data-theme="dark"] body[data-app="server-uploaders"] textarea::placeholder {
+            color: #94a3b8 !important;
+        }
+        html[data-theme="dark"] body[data-app="server-uploaders"] #terminal-output {
+            background: #0f1115 !important;
+            color: #f8fafc !important;
+            border-color: rgba(255, 255, 255, 0.12) !important;
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.35s ease-out both;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .animate-fade-in,
+            .loader-dots span,
+            .animate-ping,
+            .animate-spin {
+                animation: none !important;
+            }
+            .step-card:hover {
+                transform: none;
+            }
+        }
+
+        .glass {
+            background: rgba(30, 30, 30, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .step-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .step-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--c6-gold);
+            box-shadow: 0 10px 30px -10px rgba(211, 173, 101, 0.2);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: var(--c6-gold);
+        }
+
+        .terminal-line {
+            border-left: 2px solid transparent;
+            padding-left: 12px;
+            margin-bottom: 4px;
+        }
+
+        .terminal-line:hover {
+            background: rgba(211, 173, 101, 0.05);
+            border-left-color: var(--c6-gold);
+        }
+
+        .loader-dots span {
+            animation: loader-dots 1.4s infinite both;
+        }
+
+        .loader-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loader-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes loader-dots {
+
+            0%,
+            80%,
+            100% {
+                opacity: 0;
+            }
+
+            40% {
+                opacity: 1;
+            }
+        }
+
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            /* IE and Edge */
+            scrollbar-width: none;
+            /* Firefox */
+        }
+
+        .touch-manipulation {
+            touch-action: manipulation;
+        }
+
+        @media (max-width: 1023px) {
+            .step-card-responsive {
+                min-height: min(70vh, 520px);
+                height: auto;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .step-card-responsive {
+                height: 600px;
+            }
+        }
+
+        #terminal-output {
+            min-height: 200px;
+        }
+
+        /* Typography color standardization (Uploaders view). */
+        html[data-theme="dark"] body[data-app="server-uploaders"] {
+            color: #ffffff !important;
+        }
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-gray-300,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-gray-400,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-gray-500,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-gray-600,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-slate-300,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-slate-400,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-slate-500 {
+            color: #ffffff !important;
+        }
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-yellow-400,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-yellow-500,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-amber-400,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-amber-500,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-red-400,
+        html[data-theme="dark"] body[data-app="server-uploaders"] .text-red-500 {
+            color: #facc15 !important;
+        }
+
+        html[data-theme="light"] body[data-app="server-uploaders"] {
+            color: #111111 !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-white,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-gray-300,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-gray-400,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-gray-500,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-gray-600,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-slate-300,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-slate-400,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-slate-500,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-yellow-400,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-yellow-500,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-amber-400,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-amber-500 {
+            color: #111111 !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-red-400,
+        html[data-theme="light"] body[data-app="server-uploaders"] .text-red-500 {
+            color: #dc2626 !important;
+        }
+        html[data-theme="light"] body[data-app="server-uploaders"] .font-mono {
+            color: inherit !important;
+        }
+
+        /* Hard override: never allow refresh counters to appear gray. */
+        html[data-theme="light"] #last-refresh,
+        html[data-theme="light"] #last-refresh-mobile,
+        html[data-theme="light"] #last-refresh-label,
+        html[data-theme="light"] #last-refresh-mobile-label {
+            color: #ca8a04 !important;
+        }
+        html[data-theme="dark"] #last-refresh,
+        html[data-theme="dark"] #last-refresh-mobile,
+        html[data-theme="dark"] #last-refresh-label,
+        html[data-theme="dark"] #last-refresh-mobile-label {
+            color: #ffffff !important;
+        }
+    </style>
+    {% endif %}
+</head>
+<body data-portal-view="{{ portal_view }}"
+ class="{% if portal_view == 'cron' %}antialiased min-h-screen min-h-[100dvh]{% else %}relative min-h-screen min-h-[100dvh] flex flex-col selection:bg-c6gold selection:text-c6black pb-[env(safe-area-inset-bottom,0px)] antialiased{% endif %}"
+ {% if portal_view == 'cron' %}style="background-color: var(--app-bg); color: var(--text-primary);"{% endif %}
+ {% if portal_view == 'uploaders' %}data-app="server-uploaders"{% endif %}>
+    {% if not (cron_embed|default(false)) %}
+    {% endif %}
+    {% if portal_view == 'uploaders' %}
+
+    <script id="path-mapping-data" type="application/json">
+        {% if path_to_name is defined %}{{ path_to_name | tojson }}{% else %}{}{% endif %}
+    </script>
+
+    <!-- Toast Notification -->
+    <div id="toast-container" class="fixed top-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none"></div>
+    <!-- Header -->
+    <header
+        class="relative z-50 min-h-[4.5rem] border-b border-white/5 glass sticky top-0 px-4 sm:px-6 lg:px-10 flex flex-wrap items-center justify-between gap-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+        <div class="flex items-center gap-4 sm:gap-6 min-w-0 flex-1">
+            <div class="flex items-center gap-3 min-w-0">
+                <img src="{{ url_for('logo_brand') }}" alt="Organization" width="40" height="40" loading="eager"
+                    class="w-10 h-10 shrink-0 object-contain rounded-lg border border-c6gold/40 bg-black/30 shadow-[0_0_15px_rgba(211,173,101,0.15)]" />
+                <div class="hidden sm:block min-w-0">
+                    <h1 class="text-white font-bold text-sm tracking-tight">Server | ServerCRON</h1>
+                </div>
+            </div>
+        </div>
+
+        {% if username and page == 'upload' %}
+        <div
+            class="flex w-full min-w-0 flex-[1_1_100%] flex-col items-stretch sm:flex-[1_1_auto] sm:flex-row sm:justify-center order-3 sm:order-2 sm:max-w-2xl gap-2 px-0 sm:px-2">
+            <div
+                class="flex w-full min-w-0 items-stretch justify-between sm:justify-center gap-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 sm:px-3 sm:py-2">
+                <div class="flex min-w-0 flex-col justify-center pr-2 sm:pr-4">
+                    <span class="text-[8px] font-bold uppercase tracking-wider text-gray-500 leading-tight">Próxima
+                        sincronização BQ</span>
+                    <span id="up-bq-countdown" class="text-sm font-mono font-bold text-yellow-500 tabular-nums leading-none"
+                        title="Agendador a cada 30 min (mesmo do ServerCron)">--:--</span>
+                </div>
+                {% if is_admin %}
+                <div class="w-px shrink-0 self-stretch bg-white/10" aria-hidden="true"></div>
+                <button type="button" id="up-admin-bq-resync"
+                    class="shrink-0 self-center rounded-md border border-c6gold/30 bg-c6gold/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-c6gold transition hover:bg-c6gold/20"
+                    title="Força agora: permissões, cadastro e jobs (mesmo efeito que Sincronizar no Cron)">Sincronizar
+                    BQ</button>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if username %}
+        <div class="flex items-center gap-2 sm:gap-4 order-2 sm:order-3 sm:ml-auto">
+            {% if show_cron_link|default(false) %}
+            <a href="/cron/"
+                class="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-500/35 bg-sky-500/10 px-3 py-2 text-[10px] sm:text-xs font-black uppercase tracking-wide text-sky-300 transition hover:bg-sky-500/20 hover:text-sky-200"
+                title="Abrir Cron Scheduler">
+                <i class="fas fa-chart-line"></i>
+                <span>Cron Scheduler</span>
+            </a>
+            {% endif %}
+            <div class="text-right hidden sm:block">
+                <p class="text-[10px] text-gray-500 font-bold uppercase">Usuário</p>
+                <p class="text-sm text-white font-bold">{{ username }}</p>
+            </div>
+            <a href="{{ url_for('logout') }}"
+                class="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 hover:bg-red-500 hover:text-white transition-all"
+                title="Sair">
+                <i class="fas fa-power-off"></i>
+            </a>
+        </div>
+        {% endif %}
+    </header>
+
+    <main class="punk-bg-app relative z-10 flex-grow flex flex-col lg:flex-row overflow-hidden min-h-0">
+
+        {% if page == 'login' %}
+        <div class="flex-grow flex items-center justify-center p-6 sm:p-10">
+            <div class="w-full max-w-xl animate-fade-in">
+                <div class="text-center mb-12">
+                    <div
+                        class="w-24 h-24 sm:w-28 sm:h-28 bg-c6gold/10 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-c6gold/20">
+                        <i class="fas fa-shield-halved text-4xl sm:text-5xl text-c6gold"></i>
+                    </div>
+                    <h2 class="text-4xl sm:text-5xl font-black text-white tracking-tight">Acesso Restrito</h2>
+                    <p class="text-gray-500 mt-4 font-medium text-base sm:text-lg max-w-lg mx-auto">Insira seu usuário de rede para autenticação.</p>
+                </div>
+
+                <form action="{{ url_for('request_token') }}" method="POST" class="space-y-8">
+                    {% if cron_embed|default(false) %}<input type="hidden" name="cron_embed" value="1">{% endif %}
+                    <div class="space-y-3">
+                        <label class="text-xs font-black uppercase tracking-widest text-gray-500 ml-1">Usuário de
+                            Rede</label>
+                        <div class="relative group">
+                            <div
+                                class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-gray-500 group-focus-within:text-c6gold transition-colors text-lg">
+                                <i class="fas fa-at"></i>
+                            </div>
+                            <input type="text" name="username" placeholder="nome.sobrenome" required
+                                class="block w-full pl-12 pr-36 py-5 text-lg bg-c6gray border border-white/5 rounded-2xl text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-c6gold/50 focus:border-c6gold transition-all font-bold">
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-5 pointer-events-none">
+                                <span
+                                    class="text-sm font-black text-gray-600 uppercase tracking-tighter">@example.com</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-c6gold hover:bg-c6goldHover text-c6black font-black py-5 rounded-2xl shadow-[0_10px_20px_rgba(211,173,101,0.2)] transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-base">
+                        Solicitar Token <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% elif page == 'verify' %}
+        <div class="flex-grow flex items-center justify-center p-6 sm:p-10">
+            <div class="w-full max-w-xl animate-fade-in">
+                <div class="text-center mb-12">
+                    <div
+                        class="w-24 h-24 sm:w-28 sm:h-28 bg-c6gold/10 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-c6gold/20">
+                        <i class="fas fa-key text-4xl sm:text-5xl text-c6gold"></i>
+                    </div>
+                    <h2 class="text-4xl sm:text-5xl font-black text-white tracking-tight">Verificação</h2>
+                    <p class="text-gray-500 mt-4 font-medium text-base sm:text-lg max-w-lg mx-auto">Enviamos um código de 6 dígitos para seu e-mail.</p>
+                </div>
+
+                <form action="{{ url_for('verify_token') }}" method="POST" class="space-y-8">
+                    {% if cron_embed|default(false) %}<input type="hidden" name="cron_embed" value="1">{% endif %}
+                    <input type="hidden" name="username" value="{{ username }}">
+                    <div class="flex justify-center">
+                        <input type="text" name="token" maxlength="6" required autocomplete="off" placeholder="000000"
+                            class="block w-full max-w-[min(100%,22rem)] sm:max-w-[26rem] text-center tracking-[0.45em] text-4xl sm:text-5xl py-6 sm:py-7 bg-c6gray border-2 border-white/5 rounded-2xl text-white focus:outline-none focus:border-c6gold transition-all font-black shadow-inner">
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-c6gold hover:bg-c6goldHover text-c6black font-black py-5 rounded-2xl shadow-[0_10px_20px_rgba(211,173,101,0.2)] transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-base">
+                        Confirmar Acesso <i class="fas fa-lock-open"></i>
+                    </button>
+                    <p class="text-center text-xs sm:text-sm text-gray-600 font-bold uppercase tracking-widest">O token expira
+                        em 15 minutos</p>
+                </form>
+            </div>
+        </div>
+        {% elif page == 'upload' %}
+
+        <button type="button" id="sidebar-toggle" aria-controls="uploaders-sidebar"
+            class="lg:hidden fixed bottom-5 right-5 z-[60] w-14 h-14 rounded-2xl bg-c6gold text-c6black shadow-2xl flex items-center justify-center touch-manipulation border border-c6gold/50">
+            <i class="fas fa-bars text-lg" aria-hidden="true"></i>
+            <span class="sr-only">Abrir atalhos</span>
+        </button>
+        <div id="sidebar-backdrop" class="hidden fixed inset-0 z-[45] bg-black/60 lg:hidden" aria-hidden="true"></div>
+
+        <!-- Sidebar -->
+        <aside id="uploaders-sidebar"
+            class="fixed inset-y-0 left-0 z-[50] w-[min(100vw,20rem)] max-w-full -translate-x-full border-r border-white/5 glass flex flex-col shrink-0 transition-transform duration-200 ease-out lg:translate-x-0 lg:static lg:z-auto lg:w-80 lg:max-w-none">
+            <div class="p-6 border-b border-white/5">
+                <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Atalhos Rápidos</h3>
+                <div class="grid grid-cols-1 gap-3">
+                    <button onclick="shareServer()"
+                        class="flex items-center justify-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-c6gold/30 hover:bg-c6gold/5 transition-all group">
+                        <i class="fas fa-share-nodes text-gray-400 group-hover:text-c6gold"></i>
+                        <span class="text-[9px] font-black text-gray-500 group-hover:text-white uppercase">Compartilhar
+                            Server</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-grow overflow-y-auto custom-scrollbar p-6 space-y-8">
+                <!-- Recent Section -->
+                <section>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Recentes</h3>
+                        <i class="fas fa-clock-rotate-left text-[10px] text-gray-700"></i>
+                    </div>
+                    <div class="space-y-2">
+                        {% if user_prefs.recent %}
+                        {% for path in user_prefs.recent %}
+                        <button type="button" onclick="selectFolder(this.dataset.path)" data-path="{{ path }}"
+                            class="w-full text-left p-3 rounded-xl bg-white/2 border border-white/5 hover:border-c6gold/20 hover:bg-white/5 transition-all flex items-center gap-3 group">
+                            <div
+                                class="w-8 h-8 rounded-lg bg-c6gray flex items-center justify-center text-[10px] text-gray-500 group-hover:text-c6gold transition-colors">
+                                <i class="fas fa-folder"></i>
+                            </div>
+                            <span class="text-[11px] font-bold text-gray-400 group-hover:text-white truncate">{{
+                                path_to_name.get(path, path.split('\\')[-1]) }}</span>
+                        </button>
+                        {% endfor %}
+                        {% else %}
+                        <p class="text-[10px] text-gray-700 italic text-center py-4">Nenhum histórico</p>
+                        {% endif %}
+                    </div>
+                </section>
+
+                <!-- Frequent Section -->
+                <section>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Frequentes</h3>
+                        <i class="fas fa-star text-[10px] text-gray-700"></i>
+                    </div>
+                    <div class="space-y-2">
+                        {% if user_prefs.frequent %}
+                        {% for path in user_prefs.frequent %}
+                        <button type="button" onclick="selectFolder(this.dataset.path)" data-path="{{ path }}"
+                            class="w-full text-left p-3 rounded-xl bg-white/2 border border-white/5 hover:border-c6gold/20 hover:bg-white/5 transition-all flex items-center gap-3 group">
+                            <div
+                                class="w-8 h-8 rounded-lg bg-c6gray flex items-center justify-center text-[10px] text-gray-500 group-hover:text-c6gold transition-colors">
+                                <i class="fas fa-bolt"></i>
+                            </div>
+                            <span class="text-[11px] font-bold text-gray-400 group-hover:text-white truncate">{{
+                                path_to_name.get(path, path.split('\\')[-1]) }}</span>
+                        </button>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                </section>
+            </div>
+
+            <div class="p-6 border-t border-white/5 bg-black/20">
+                <div class="flex items-center gap-3">
+                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Server online</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <div class="flex-grow overflow-y-auto custom-scrollbar p-4 sm:p-6 lg:p-8 min-w-0 pb-24 lg:pb-10" id="workspace-container">
+
+            <!-- Dashboard View -->
+            <div id="upload-section" class="max-w-6xl mx-auto space-y-8 animate-fade-in">
+
+                <header class="space-y-2">
+                    <h2 class="text-4xl font-black text-white tracking-tight">Orquestrador de Fluxos</h2>
+                    <p class="text-gray-500 font-medium">Gerencie e execute suas automações Python com segurança.</p>
+                </header>
+
+                <form id="uploadForm" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <input type="hidden" name="target_folder" id="folder-select-hidden">
+                    <input type="hidden" name="execution_mode" id="execution-mode-hidden" value="upload_run">
+
+                    <!-- Step 1: Selection -->
+                    <div class="step-card step-card-responsive glass rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 flex flex-col">
+                        <div class="flex items-center gap-4 mb-6 sm:mb-8">
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shrink-0">
+                                <i class="fas fa-list-check text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-white font-black text-lg tracking-tight">1. Seleção</h3>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Escolha o
+                                    Processo</p>
+                            </div>
+                        </div>
+
+                        <div class="relative mb-6">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-xs"></i>
+                            <input type="text" id="folder-search" placeholder="Filtrar processos..."
+                                class="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/5 rounded-xl text-sm text-white placeholder-gray-600 focus:outline-none focus:border-c6gold/50 transition-all">
+                        </div>
+
+                        <div class="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-4" id="folder-tree">
+                            {% for root_name, subpastas in diretorios.items() %}
+                            <div class="area-group">
+                                <button type="button"
+                                    class="w-full flex items-center justify-between py-2 px-3 hover:bg-white/5 rounded-lg transition-all group toggle-area-btn">
+                                    <span
+                                        class="text-[10px] font-black text-gray-500 uppercase tracking-widest group-hover:text-gray-300">{{
+                                        root_name }}</span>
+                                    <i
+                                        class="fas fa-chevron-down text-[10px] text-gray-700 group-hover:text-c6gold transition-all"></i>
+                                </button>
+                                <div class="mt-2 space-y-1 area-content">
+                                    {% for path, name in subpastas.items() %}
+                                    <button type="button" onclick="selectFolder(this.dataset.path, this)"
+                                        class="folder-btn w-full text-left px-4 py-3 rounded-xl text-xs font-bold text-gray-400 hover:bg-white/5 hover:text-white transition-all flex items-center gap-3"
+                                        data-path="{{ path }}" data-name="{{ name | upper }}">
+                                        <div class="w-1.5 h-1.5 rounded-full bg-gray-800 transition-colors"></div>
+                                        <span class="truncate">{{ name }}</span>
+                                    </button>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Input -->
+                    <div class="step-card step-card-responsive glass rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 flex flex-col">
+                        <div class="flex items-center gap-4 mb-6 sm:mb-8">
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-500 shrink-0">
+                                <i class="fas fa-file-import text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-white font-black text-lg tracking-tight">2. Entrada</h3>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Anexe os Dados
+                                </p>
+                            </div>
+                        </div>
+
+                        <div id="drop-zone"
+                            class="flex-grow border-2 border-dashed border-white/10 rounded-[24px] flex flex-col items-center justify-center p-6 text-center cursor-pointer hover:bg-white/5 hover:border-c6gold/30 transition-all group">
+                            <input type="file" name="files" id="file-upload" class="hidden" multiple>
+                            <div
+                                class="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                                <i class="fas fa-cloud-arrow-up text-3xl text-gray-600 group-hover:text-c6gold"></i>
+                            </div>
+                            <p class="text-white font-bold text-sm mb-1">Arraste um ou mais arquivos</p>
+                            <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">qualquer extensão &mdash; ou clique para buscar</p>
+                        </div>
+
+                        <div id="file-display"
+                            class="hidden flex-grow flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+                            <div class="relative mb-6">
+                                <div
+                                    class="w-24 h-24 rounded-3xl bg-c6gold/10 border border-c6gold/20 flex items-center justify-center">
+                                    <i class="fas fa-file-lines text-4xl text-c6gold"></i>
+                                </div>
+                                <button type="button" id="remove-file"
+                                    class="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors">
+                                    <i class="fas fa-times text-xs"></i>
+                                </button>
+                            </div>
+                            <p id="file-name" class="text-white font-black text-xs sm:text-sm max-w-full mb-2 break-words text-center leading-snug max-h-32 overflow-y-auto custom-scrollbar"></p>
+                            <span
+                                class="px-3 py-1 bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest rounded-full border border-green-500/20">Pronto
+                                para Carga</span>
+                        </div>
+
+                        <div class="mt-8 p-4 bg-white/5 rounded-2xl border border-white/5">
+                            <p id="step2-info" class="text-[11px] text-gray-500 leading-relaxed italic">Selecione um
+                                processo no Passo 1 para habilitar o upload.</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Action -->
+                    <div class="step-card step-card-responsive glass rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 flex flex-col">
+                        <div class="flex items-center gap-4 mb-6 sm:mb-8">
+                            <div
+                                class="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 shrink-0">
+                                <i class="fas fa-bolt-lightning text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-white font-black text-lg tracking-tight">3. Execução</h3>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Disparo do Robô
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex-grow flex flex-col items-center justify-center text-center space-y-6">
+                            <div id="step3-waiting" class="space-y-4">
+                                <div
+                                    class="w-24 h-24 rounded-full border-4 border-white/5 flex items-center justify-center mx-auto opacity-20">
+                                    <i class="fas fa-play text-3xl"></i>
+                                </div>
+                                <p class="text-[11px] text-gray-600 font-bold uppercase tracking-widest">Aguardando
+                                    Configuração</p>
+                            </div>
+
+                            <div id="step3-ready" class="hidden space-y-6 animate-fade-in">
+                                <div
+                                    class="w-24 h-24 rounded-full border-4 border-c6gold/30 flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(211,173,101,0.1)] relative">
+                                    <i class="fas fa-play text-3xl text-c6gold translate-x-1"></i>
+                                    <div
+                                        class="absolute inset-0 rounded-full border-4 border-c6gold border-t-transparent animate-spin">
+                                    </div>
+                                </div>
+                                <p class="text-sm text-white font-black uppercase tracking-widest">Sistemas Validados</p>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                                    Execução em fila FIFO por python (mais antigo primeiro)
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="mt-auto space-y-3">
+                            <button type="button" id="btn-upload-run" disabled
+                                class="touch-manipulation w-full py-5 bg-c6gold disabled:bg-gray-800 disabled:text-gray-600 text-c6black font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] disabled:pointer-events-none">
+                                <span id="btn-upload-run-label">Upload + Start</span>
+                                <i id="btn-upload-run-icon" class="fas fa-rocket"></i>
+                            </button>
+                            <button type="button" id="btn-upload-only" disabled
+                                class="touch-manipulation w-full py-4 bg-white/5 border border-white/10 disabled:opacity-30 text-white font-bold uppercase tracking-[0.2em] text-[10px] rounded-2xl transition-all hover:bg-white/10 disabled:pointer-events-none">
+                                <span id="btn-upload-only-label">Apenas Upload</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Terminal View -->
+            <div id="terminal-section" class="hidden max-w-5xl mx-auto space-y-8 animate-fade-in">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-c6gray border border-white/10 flex items-center justify-center text-c6gold">
+                            <i class="fas fa-terminal"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-black text-white tracking-tight">Console de Execução</h2>
+                            <p id="running-script-name"
+                                class="text-c6gold text-[10px] font-black uppercase tracking-widest">Iniciando...</p>
+                        </div>
+                    </div>
+                    <div id="status-badge"
+                        class="px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center gap-3">
+                        <span class="flex h-2 w-2 relative">
+                            <span
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                        </span>
+                        <span class="text-[10px] font-black uppercase tracking-widest">Processando</span>
+                    </div>
+                </div>
+
+                <div class="glass rounded-[32px] overflow-hidden border border-white/10 shadow-2xl">
+                    <div class="bg-black/40 px-6 py-3 flex items-center justify-between border-b border-white/5">
+                        <div class="flex gap-2">
+                            <div class="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
+                            <div class="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
+                            <div class="w-2.5 h-2.5 rounded-full bg-green-500/50"></div>
+                        </div>
+                        <span class="text-[9px] font-black text-gray-600 uppercase tracking-[0.3em]">ServerCron console
+                            v2.0</span>
+                    </div>
+                    <div id="terminal-output"
+                        class="h-[min(55vh,520px)] lg:h-[500px] overflow-y-auto p-4 sm:p-8 font-mono text-xs md:text-sm text-gray-400 custom-scrollbar bg-black/20">
+                        <!-- Logs will appear here -->
+                    </div>
+                </div>
+
+                <div id="terminal-actions" class="hidden flex justify-center pt-6">
+                    <button onclick="location.reload()"
+                        class="bg-c6gold hover:bg-c6goldHover text-c6black font-black px-12 py-4 rounded-2xl shadow-2xl transition-all flex items-center gap-3 uppercase tracking-widest text-sm">
+                        <i class="fas fa-rotate-left"></i> Novo Processo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Success View -->
+            <div id="success-section" class="hidden max-w-2xl mx-auto text-center py-20 animate-fade-in">
+                <div
+                    class="w-24 h-24 rounded-[40px] bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(34,197,94,0.1)]">
+                    <i class="fas fa-check-double text-4xl text-green-500"></i>
+                </div>
+                <h3 class="text-3xl font-black text-white mb-4 tracking-tight">Upload Concluído</h3>
+                <p class="text-gray-500 mb-10">Arquivo(s) gravado(s): <b id="success-file-name" class="text-white block mt-2"></b>
+                    <span class="text-gray-600 text-sm block mt-2">Armazenado(s) na pasta de destino.</span></p>
+                <button onclick="location.reload()"
+                    class="bg-white/5 hover:bg-white/10 text-white font-black px-10 py-4 rounded-2xl border border-white/10 transition-all uppercase tracking-widest text-xs">
+                    Voltar ao Início
+                </button>
+            </div>
+
+            <!-- Missing Script View -->
+            <div id="missing-script-section" class="hidden max-w-2xl mx-auto text-center py-20 animate-fade-in">
+                <div
+                    class="w-24 h-24 rounded-[40px] bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(249,115,22,0.1)]">
+                    <i class="fas fa-triangle-exclamation text-4xl text-orange-500"></i>
+                </div>
+                <h3 class="text-3xl font-black text-white mb-4 tracking-tight">Script não Localizado</h3>
+                <p class="text-gray-500 mb-10">O upload foi realizado, mas não encontramos o script <b
+                        id="missing-script-name" class="text-white"></b> para execução automática.</p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button onclick="location.reload()"
+                        class="px-10 py-4 bg-white/5 text-white font-black rounded-2xl border border-white/10 uppercase tracking-widest text-xs">Voltar</button>
+                    <a id="btn-contato" href="#"
+                        class="px-10 py-4 bg-c6gold text-c6black font-black rounded-2xl shadow-xl uppercase tracking-widest text-xs flex items-center justify-center gap-2">
+                        <i class="fas fa-envelope"></i> Notificar TI
+                    </a>
+                </div>
+            </div>
+
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- Choice Modal -->
+    <div id="choice-modal"
+        class="hidden fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div
+            class="w-full max-w-lg glass rounded-[40px] p-10 border border-white/10 shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-20 -right-20 w-40 h-40 bg-c6gold/10 blur-[60px] rounded-full"></div>
+
+            <div class="text-center mb-10">
+                <h3 class="text-2xl font-black text-white tracking-tight">Modo de Execução</h3>
+                <p class="text-gray-500 mt-2 text-sm">Como deseja processar esta solicitação?</p>
+            </div>
+
+            <div class="space-y-4">
+                <button id="modal-upload-run"
+                    class="w-full p-6 rounded-3xl bg-c6gold hover:bg-c6goldHover transition-all flex items-center gap-6 group">
+                    <div
+                        class="w-12 h-12 rounded-2xl bg-black/20 flex items-center justify-center text-black group-hover:scale-110 transition-transform">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <div class="text-left">
+                        <span class="block text-black font-black uppercase tracking-wider text-sm">Upload + Start</span>
+                        <span class="text-black/60 text-[10px] font-bold">Enviar arquivo e iniciar robô agora.</span>
+                    </div>
+                </button>
+
+                <button id="modal-run-only"
+                    class="w-full p-6 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center gap-6 group">
+                    <div
+                        class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                        <i class="fas fa-play"></i>
+                    </div>
+                    <div class="text-left">
+                        <span class="block text-white font-black uppercase tracking-wider text-sm">Apenas Start</span>
+                        <span class="text-gray-500 text-[10px] font-bold">Usar arquivo já existente no ServerUploaders.</span>
+                    </div>
+                </button>
+
+                <button id="close-modal"
+                    class="w-full py-4 text-gray-600 hover:text-white font-bold transition-colors text-[10px] uppercase tracking-[0.3em]">Cancelar
+                    Operação</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="h-12 border-t border-white/5 glass flex items-center justify-center px-6">
+        <p class="text-[9px] font-black text-gray-600 uppercase tracking-[0.4em]">© 2026 ServerCRON — open source automation portal</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Global State & UI Helpers
+        const USERNAME = "{{ username }}";
+        const CSRF_TOKEN = {{ (csrf_token or '')|tojson }};
+        const FLASH_MESSAGES = {{ get_flashed_messages(with_categories=true)|tojson }};
+        let pathMapping = {};
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            const colors = {
+                success: 'bg-green-500 border-green-400/30',
+                error: 'bg-red-500 border-red-400/30',
+                info: 'bg-c6gray border-white/10'
+            };
+
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-triangle-exclamation',
+                info: 'fa-circle-info'
+            };
+
+            toast.className = `flex items-center gap-4 ${colors[type] || colors.info} text-white px-6 py-4 rounded-2xl shadow-2xl border animate-fade-in pointer-events-auto`;
+            toast.innerHTML = `
+                <i class="fas ${icons[type] || icons.info} text-lg"></i>
+                <span class="text-xs font-bold tracking-tight">${message}</span>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(20px)';
+                toast.style.transition = 'all 0.5s ease';
+                setTimeout(() => toast.remove(), 500);
+            }, 4000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!Array.isArray(FLASH_MESSAGES) || FLASH_MESSAGES.length === 0) return;
+            const mapType = { error: 'error', warning: 'error', success: 'success', info: 'info' };
+            FLASH_MESSAGES.forEach((item) => {
+                const category = Array.isArray(item) ? (item[0] || 'info') : 'info';
+                const message = Array.isArray(item) ? String(item[1] || '') : String(item || '');
+                if (message.trim()) showToast(message, mapType[category] || 'info');
+            });
+        });
+
+        // Event Logging
+        async function logEvent(data) {
+            try {
+                await fetch('/api/log_event', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user: USERNAME, ...data })
+                });
+            } catch (e) { }
+        }
+
+        // Share Server
+        async function shareServer() {
+            try {
+                const res = await fetch('/api/share_outlook', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': CSRF_TOKEN,
+                    },
+                    body: JSON.stringify({ csrf_token: CSRF_TOKEN }),
+                });
+                const data = await res.json();
+                if (data.status === 'success') showToast("Outlook aberto com sucesso!", "success");
+                else showToast(data.message || "Erro ao abrir Outlook", "error");
+            } catch (e) {
+                showToast("Erro de conexão", "error");
+            }
+        }
+
+        // Dashboard Logic
+        document.addEventListener('DOMContentLoaded', function () {
+            const pmEl = document.getElementById('path-mapping-data');
+            if (pmEl && pmEl.textContent) {
+                try {
+                    pathMapping = JSON.parse(pmEl.textContent.trim()) || {};
+                } catch (e) {
+                    pathMapping = {};
+                }
+            }
+
+            const sidebar = document.getElementById('uploaders-sidebar');
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+            function closeSidebar() {
+                if (!sidebar) return;
+                sidebarBackdrop?.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+                if (window.innerWidth < 1024) {
+                    sidebar.classList.add('-translate-x-full');
+                }
+            }
+            function openSidebar() {
+                if (!sidebar || window.innerWidth >= 1024) return;
+                sidebar.classList.remove('-translate-x-full');
+                sidebarBackdrop?.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            }
+            sidebarToggle?.addEventListener('click', () => {
+                if (window.innerWidth >= 1024) return;
+                if (sidebar?.classList.contains('-translate-x-full')) openSidebar();
+                else closeSidebar();
+            });
+            sidebarBackdrop?.addEventListener('click', closeSidebar);
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 1024) {
+                    sidebarBackdrop?.classList.add('hidden');
+                    document.body.classList.remove('overflow-hidden');
+                } else {
+                    sidebar?.classList.add('-translate-x-full');
+                }
+            });
+
+            const upBqCd = document.getElementById('up-bq-countdown');
+            if (upBqCd) {
+                const CSRF_SYNC = {{ (csrf_token or '')|tojson }};
+                const IS_ADMIN_UP = {{ is_admin|tojson }};
+                function _fmtTimeSec(s) {
+                    s = Math.floor(s);
+                    if (s < 60) return s + 's';
+                    if (s < 3600) {
+                        const m = Math.floor(s / 60);
+                        return m + 'm' + String(s % 60).padStart(2, '0') + 's';
+                    }
+                    const h = Math.floor(s / 3600);
+                    const m = Math.floor((s % 3600) / 60);
+                    return h + 'h' + String(m).padStart(2, '0') + 'm';
+                }
+                function _countdownIso(iso) {
+                    if (!iso) return '--';
+                    const diff = Math.max(0, Math.floor((new Date(iso) - Date.now()) / 1000));
+                    if (diff === 0) return 'agora';
+                    return _fmtTimeSec(diff);
+                }
+                let nextTargetMs = 0;
+                let fallbackIntervalSec = 1800;
+                async function _pollBqUp() {
+                    try {
+                        const r = await fetch('/api/bq_sync_status', { credentials: 'same-origin' });
+                        const d = await r.json();
+                        if (d.ok) {
+                            if (Number.isFinite(Number(d.interval_minutes)) && Number(d.interval_minutes) > 0) {
+                                fallbackIntervalSec = Math.max(60, Math.floor(Number(d.interval_minutes) * 60));
+                            }
+                            if (d.next_hot_reload_iso) {
+                                const ts = Date.parse(d.next_hot_reload_iso);
+                                if (Number.isFinite(ts) && ts > Date.now()) {
+                                    nextTargetMs = ts;
+                                }
+                            } else if (!nextTargetMs || nextTargetMs <= Date.now()) {
+                                nextTargetMs = Date.now() + (fallbackIntervalSec * 1000);
+                            }
+                        }
+                    } catch (e) { /* network */ }
+                }
+                setInterval(() => {
+                    if (nextTargetMs && nextTargetMs > Date.now()) {
+                        upBqCd.textContent = _countdownIso(new Date(nextTargetMs).toISOString());
+                    } else if (fallbackIntervalSec > 0) {
+                        nextTargetMs = Date.now() + (fallbackIntervalSec * 1000);
+                        upBqCd.textContent = _fmtTimeSec(fallbackIntervalSec);
+                    }
+                }, 1000);
+                setInterval(_pollBqUp, 2000);
+                _pollBqUp();
+                const upBtn = document.getElementById('up-admin-bq-resync');
+                if (upBtn && !IS_ADMIN_UP) {
+                    upBtn.remove();
+                }
+                if (upBtn && IS_ADMIN_UP) {
+                    upBtn.addEventListener('click', async () => {
+                        try {
+                            const r = await fetch('/api/admin/bq_resync', {
+                                method: 'POST',
+                                credentials: 'same-origin',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-Token': CSRF_SYNC,
+                                },
+                                body: JSON.stringify({ csrf_token: CSRF_SYNC }),
+                            });
+                            let d = {};
+                            try {
+                                d = await r.json();
+                            } catch (e) {
+                                d = {};
+                            }
+                            if (r.status === 429 && d.status === 'cooldown') {
+                                const ws = Number(d.wait_seconds);
+                                const sec = Number.isFinite(ws) && ws > 0 ? ws : 180;
+                                showToast('Aguarde ' + sec + 's para sincronizar de novo.', 'error');
+                                return;
+                            }
+                            if (!r.ok) {
+                                showToast((d && d.message) || 'Falha ao sincronizar.', 'error');
+                                return;
+                            }
+                            if (d.status === 'success') {
+                                showToast(
+                                    'Sincronizado: ' + d.script_count + ' script(s). Permissões (Uploaders + Cron) e jobs atualizados.',
+                                    'success'
+                                );
+                                if (d.next_hot_reload_iso) {
+                                    upBqCd.textContent = _countdownIso(d.next_hot_reload_iso);
+                                }
+                            }
+                        } catch (e) {
+                            showToast('Erro de rede.', 'error');
+                        }
+                    });
+                }
+            }
+
+            const uploadForm = document.getElementById('uploadForm');
+            if (!uploadForm) return;
+
+            const folderSelectHidden = document.getElementById('folder-select-hidden');
+            const fileInput = document.getElementById('file-upload');
+            const dropZone = document.getElementById('drop-zone');
+            const fileDisplay = document.getElementById('file-display');
+            const fileNameDisplay = document.getElementById('file-name');
+            const removeFileBtn = document.getElementById('remove-file');
+            const folderSearch = document.getElementById('folder-search');
+
+            const btnUploadRun = document.getElementById('btn-upload-run');
+            const btnUploadOnly = document.getElementById('btn-upload-only');
+            const execModeHidden = document.getElementById('execution-mode-hidden');
+
+            const choiceModal = document.getElementById('choice-modal');
+            const modalUploadRun = document.getElementById('modal-upload-run');
+            const modalRunOnly = document.getElementById('modal-run-only');
+            const closeModal = document.getElementById('close-modal');
+
+            // Folder Selection
+            window.selectFolder = function (path, element) {
+                folderSelectHidden.value = path;
+                const name = pathMapping[path] || path.split('\\').pop();
+
+                // Update UI
+                document.querySelectorAll('.folder-btn').forEach(b => {
+                    b.classList.remove('bg-c6gold/10', 'text-white', 'border-c6gold/20');
+                    b.querySelector('div').classList.remove('bg-c6gold');
+                    b.querySelector('div').classList.add('bg-gray-800');
+                });
+
+                if (element) {
+                    element.classList.add('bg-c6gold/10', 'text-white', 'border-c6gold/20');
+                    element.querySelector('div').classList.remove('bg-gray-800');
+                    element.querySelector('div').classList.add('bg-c6gold');
+                }
+
+                document.getElementById('step2-info').innerHTML = `Destino: <b class="text-white">${name}</b>`;
+                checkValidity();
+                logEvent({ type: 'FOLDER_SELECT', label: name, path: path });
+                if (typeof closeSidebar === 'function' && window.innerWidth < 1024) closeSidebar();
+            };
+
+            // Tree Toggle
+            document.querySelectorAll('.toggle-area-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const content = btn.nextElementSibling;
+                    const icon = btn.querySelector('.fa-chevron-down');
+                    content.classList.toggle('hidden');
+                    icon.classList.toggle('-rotate-90');
+                });
+            });
+
+            // Search Filter
+            folderSearch.addEventListener('input', (e) => {
+                const term = e.target.value.toUpperCase();
+                document.querySelectorAll('.folder-btn').forEach(btn => {
+                    const name = btn.dataset.name;
+                    btn.classList.toggle('hidden', !name.includes(term));
+                });
+                document.querySelectorAll('.area-group').forEach(group => {
+                    const visible = group.querySelectorAll('.folder-btn:not(.hidden)').length;
+                    group.classList.toggle('hidden', visible === 0);
+                });
+            });
+
+            // File Handling (múltiplos ficheiros, qualquer extensão)
+            function handleFiles(files) {
+                if (!files || files.length === 0) return;
+                const dt = new DataTransfer();
+                for (let i = 0; i < files.length; i++) {
+                    dt.items.add(files[i]);
+                }
+                fileInput.files = dt.files;
+                const names = Array.from(fileInput.files).map((f) => f.name);
+                fileNameDisplay.textContent = names.length === 1
+                    ? names[0]
+                    : names.length + ' arquivos: ' + names.join(', ');
+                dropZone.classList.add('hidden');
+                fileDisplay.classList.remove('hidden');
+                checkValidity();
+            }
+
+            dropZone.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+            removeFileBtn.addEventListener('click', () => {
+                fileInput.value = '';
+                dropZone.classList.remove('hidden');
+                fileDisplay.classList.add('hidden');
+                checkValidity();
+            });
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
+                dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); });
+            });
+
+            dropZone.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+
+            function checkValidity() {
+                const hasFolder = folderSelectHidden.value !== "";
+                const hasFile = fileInput.files.length > 0;
+
+                document.getElementById('step3-waiting').classList.toggle('hidden', hasFolder);
+                document.getElementById('step3-ready').classList.toggle('hidden', !hasFolder);
+
+                btnUploadRun.disabled = !hasFolder;
+                btnUploadOnly.disabled = !(hasFolder && hasFile);
+            }
+
+            // Execution Trigger
+            btnUploadRun.addEventListener('click', () => choiceModal.classList.remove('hidden'));
+            closeModal.addEventListener('click', () => choiceModal.classList.add('hidden'));
+
+            modalUploadRun.addEventListener('click', () => {
+                if (fileInput.files.length === 0) {
+                    showToast("Selecione ao menos um arquivo", "error");
+                    choiceModal.classList.add('hidden');
+                    return;
+                }
+                execModeHidden.value = 'upload_run';
+                choiceModal.classList.add('hidden');
+                uploadForm.requestSubmit();
+            });
+
+            modalRunOnly.addEventListener('click', () => {
+                choiceModal.classList.add('hidden');
+                startDirectExecution();
+            });
+
+            async function startDirectExecution() {
+                const formData = new FormData();
+                formData.append('target_folder', folderSelectHidden.value);
+                setUploadBusy(true);
+                try {
+                    const res = await fetch('{{ url_for("prepare_execution") }}', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (data.status === 'error') {
+                        showToast(data.message, "error");
+                        return;
+                    }
+                    handleExecutionResponse(data);
+                } catch (err) {
+                    showToast("Erro ao iniciar execução", "error");
+                } finally {
+                    setUploadBusy(false);
+                }
+            }
+
+            function setUploadBusy(busy) {
+                const labelRun = document.getElementById('btn-upload-run-label');
+                const iconRun = document.getElementById('btn-upload-run-icon');
+                const labelOnly = document.getElementById('btn-upload-only-label');
+                uploadForm.dataset.busy = busy ? '1' : '';
+                btnUploadRun.disabled = busy || !folderSelectHidden.value;
+                btnUploadOnly.disabled = busy || !(folderSelectHidden.value && fileInput.files.length);
+                if (labelOnly) labelOnly.textContent = busy ? 'Aguarde...' : 'Apenas Upload';
+                if (busy) {
+                    if (labelRun) labelRun.textContent = 'Enviando...';
+                    if (iconRun) {
+                        iconRun.className = 'fas fa-spinner fa-spin';
+                    }
+                } else {
+                    if (labelRun) labelRun.textContent = 'Upload + Start';
+                    if (iconRun) iconRun.className = 'fas fa-rocket';
+                    checkValidity();
+                }
+            }
+
+            uploadForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(uploadForm);
+                setUploadBusy(true);
+                try {
+                    const res = await fetch('{{ url_for("upload_ajax") }}', { method: 'POST', body: formData });
+                    const data = await res.json();
+
+                    if (data.status === 'error') {
+                        showToast(data.message, "error");
+                        return;
+                    }
+
+                    if (data.execution_mode === 'upload_only') {
+                        document.getElementById('upload-section').classList.add('hidden');
+                        document.getElementById('success-section').classList.remove('hidden');
+                        document.getElementById('success-file-name').textContent = data.file_saved;
+                    } else {
+                        handleExecutionResponse(data);
+                    }
+                } catch (err) {
+                    showToast("Erro no processamento", "error");
+                } finally {
+                    setUploadBusy(false);
+                }
+            });
+
+            function handleExecutionResponse(data) {
+                document.getElementById('upload-section').classList.add('hidden');
+
+                if (data.script_exists === false) {
+                    document.getElementById('missing-script-name').textContent = data.folder_name + '.py';
+                    document.getElementById('btn-contato').href = `https://github.com/abobicaduco/ServerCRON/issues/new?title=${encodeURIComponent('Script Ausente: ' + data.folder_name)}`;
+                    document.getElementById('missing-script-section').classList.remove('hidden');
+                } else {
+                    document.getElementById('running-script-name').textContent = data.python_name || data.script_name;
+                    document.getElementById('terminal-section').classList.remove('hidden');
+                    startLogStream();
+                }
+            }
+
+            function startLogStream() {
+                const output = document.getElementById('terminal-output');
+                const eventSource = new EventSource("{{ url_for('stream_logs') }}");
+
+                eventSource.onmessage = function (e) {
+                    const data = e.data;
+
+                    if (data.includes('Aguardando na fila')) {
+                        appendLog("⏳ " + data, "text-orange-400 font-bold");
+                        return;
+                    }
+
+                    if (data.includes('[CONCLUIDO_SUCESSO]')) {
+                        appendLog("✅ PROCESSO FINALIZADO COM SUCESSO", "text-green-500 font-black mt-4");
+                        finishTerminal('success');
+                        eventSource.close();
+                        return;
+                    }
+                    if (data.includes('[CONCLUIDO_AVISO]')) {
+                        appendLog("⚠️ " + data.replace('[CONCLUIDO_AVISO]', ''), "text-yellow-500 font-bold mt-4");
+                        finishTerminal('warning');
+                        eventSource.close();
+                        return;
+                    }
+                    if (data.includes('[CONCLUIDO_ERRO]')) {
+                        appendLog("❌ ERRO: " + data.replace('[CONCLUIDO_ERRO]', ''), "text-red-500 font-bold mt-4");
+                        finishTerminal('error');
+                        eventSource.close();
+                        return;
+                    }
+
+                    appendLog(data);
+                };
+
+                eventSource.onerror = () => {
+                    appendLog("Conexão com o Server perdida.", "text-red-400 italic");
+                    finishTerminal('error');
+                    eventSource.close();
+                };
+            }
+
+            function appendLog(text, classes = "") {
+                const output = document.getElementById('terminal-output');
+                const line = document.createElement('div');
+                line.className = "terminal-line " + classes;
+                line.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+                output.appendChild(line);
+                output.scrollTop = output.scrollHeight;
+            }
+
+            function finishTerminal(status) {
+                const badge = document.getElementById('status-badge');
+                const actions = document.getElementById('terminal-actions');
+
+                badge.classList.remove('text-blue-500', 'border-blue-500/20', 'bg-blue-500/10');
+                badge.querySelector('.animate-ping').classList.add('hidden');
+
+                if (status === 'success') {
+                    badge.innerHTML = '<i class="fas fa-check-circle"></i> SUCESSO';
+                    badge.classList.add('text-green-500', 'border-green-500/20', 'bg-green-500/10');
+                } else if (status === 'warning') {
+                    badge.innerHTML = '<i class="fas fa-exclamation-circle"></i> AVISO';
+                    badge.classList.add('text-yellow-500', 'border-yellow-500/20', 'bg-yellow-500/10');
+                } else {
+                    badge.innerHTML = '<i class="fas fa-times-circle"></i> FALHA';
+                    badge.classList.add('text-red-500', 'border-red-500/20', 'bg-red-500/10');
+                }
+
+                actions.classList.remove('hidden');
+            }
+        });
+
+        (function markUploadersPerformanceLite() {
+            var lowHw =
+                (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
+                (navigator.deviceMemory && navigator.deviceMemory <= 4);
+            if (lowHw) document.body.classList.add('performance-lite');
+        })();
+    </script>
+
+    <!-- Session keep-alive (lightweight; only when tab is visible) -->
+<script>
+        setInterval(function () {
+            if (document.visibilityState === 'visible') {
+                fetch('/', { method: 'HEAD', cache: 'no-store' }).catch(function () { });
+            }
+        }, 120000);
+    </script>
+    {% else %}
+
+    <!-- Login (token — same flow as ServerUploaders) -->
+    <div id="login-overlay" class="fixed inset-0 z-[200] flex flex-col items-center justify-start overflow-y-auto pt-12 sm:pt-16 pb-10 px-5 sm:px-8">
+        <div class="login-card w-full max-w-xl rounded-2xl border p-8 sm:p-10 shadow-2xl backdrop-blur-md" style="background: rgba(10,10,10,0.92); border-color: rgba(255,255,255,0.1);">
+            <div class="mb-8 flex items-center gap-4">
+                <div class="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-700 text-sm sm:text-base font-bold text-black shadow-lg">SC</div>
+                <div>
+                    <h1 class="login-title text-xl sm:text-2xl font-bold tracking-tight text-white leading-snug">Server | ServerCRON</h1>
+                </div>
+            </div>
+            <p class="login-muted mb-6 text-sm sm:text-base text-gray-400 leading-relaxed">Informe seu usuário de rede (sem domínio de e-mail, ex.: @example.com). Enviaremos um token de 6 dígitos ao seu e-mail corporativo.</p>
+            <div id="login-step-user" class="space-y-4">
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-500">Usuário</label>
+                <input type="text" id="login-username" autocomplete="username" class="login-input w-full rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-base text-white outline-none placeholder:text-gray-600 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/40" placeholder="nome.sobrenome">
+                <button type="button" id="login-request-btn" class="w-full rounded-xl bg-yellow-500 py-4 text-base font-bold text-black transition hover:bg-yellow-400">Enviar token por e-mail</button>
+            </div>
+            <div id="login-step-token" class="login-divider mt-8 hidden space-y-4 border-t border-white/10 pt-8">
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-500">Código recebido</label>
+                <input type="text" id="login-token" inputmode="numeric" maxlength="8" class="login-input login-token-field w-full rounded-xl border border-white/10 bg-white/5 px-4 py-4 sm:py-5 text-center font-mono text-3xl sm:text-4xl tracking-[0.35em] text-white outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/40" placeholder="000000">
+                <button type="button" id="login-verify-btn" class="login-verify-btn w-full rounded-xl bg-white/10 py-4 text-base font-bold text-white transition hover:bg-white/20">Entrar</button>
+                <button type="button" id="login-back-btn" class="w-full text-sm text-gray-500 underline-offset-2 hover:underline">Voltar</button>
+            </div>
+            <p id="login-msg" class="mt-5 min-h-[1.5rem] text-center text-sm text-gray-500"></p>
+            <p class="mt-5 text-center">
+                <a href="https://github.com/abobicaduco/ServerCRON/issues" target="_blank" rel="noopener noreferrer" class="text-xs sm:text-sm font-semibold text-sky-400/90 hover:text-sky-300 hover:underline underline-offset-2">GitHub — issues &amp; documentation</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            function _apiBase() {
+                var path = window.location.pathname || "/";
+                var pv = (document.body && document.body.getAttribute("data-portal-view")) || "";
+                if (path === "/cron" || path.indexOf("/cron/") === 0 || pv === "cron") {
+                    return window.location.origin + "/cron";
+                }
+                return window.location.origin;
+            }
+            function _bindCronLoginFallback() {
+                var btnReq = document.getElementById("login-request-btn");
+                var btnVer = document.getElementById("login-verify-btn");
+                var msgEl = document.getElementById("login-msg");
+                var userEl = document.getElementById("login-username");
+                var tokenEl = document.getElementById("login-token");
+                var stepToken = document.getElementById("login-step-token");
+                if (!btnReq || !btnVer || !userEl || !tokenEl) return;
+                if (window.__cronLoginFallbackBound) return;
+                window.__cronLoginFallbackBound = true;
+                console.log("[login:fallback] bound", {
+                    path: window.location.pathname,
+                    portal_view: (document.body && document.body.getAttribute("data-portal-view")) || "",
+                    api: _apiBase(),
+                });
+
+                btnReq.addEventListener("click", async function () {
+                    var u = (userEl.value || "").trim().toLowerCase();
+                    if (!u) {
+                        if (msgEl) msgEl.textContent = "Informe o usuário.";
+                        return;
+                    }
+                    var url = _apiBase() + "/api/auth/request-token";
+                    console.log("[login:fallback] request-token ->", url, "| user:", u);
+                    try {
+                        var r = await fetch(url, {
+                            method: "POST",
+                            credentials: "same-origin",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ username: u }),
+                        });
+                        var raw = await r.text();
+                        var d = {};
+                        try { d = raw ? JSON.parse(raw) : {}; } catch (e) {
+                            console.error("[login:fallback] request-token parse error", r.status, e, raw.slice(0, 500));
+                            if (msgEl) msgEl.textContent = "Erro HTTP " + r.status + " (resposta inválida).";
+                            return;
+                        }
+                        console.log("[login:fallback] request-token result", r.status, d);
+                        if (r.ok && d.status === "success") {
+                            if (msgEl) msgEl.textContent = d.message || "Token enviado.";
+                            if (stepToken) stepToken.classList.remove("hidden");
+                            tokenEl.focus();
+                        } else if (msgEl) {
+                            msgEl.textContent = (d && d.message) || ("Erro HTTP " + r.status);
+                        }
+                    } catch (err) {
+                        console.error("[login:fallback] request-token exception", err);
+                        if (msgEl) msgEl.textContent = "Falha de rede ao solicitar token.";
+                    }
+                });
+
+                btnVer.addEventListener("click", async function () {
+                    var u = (userEl.value || "").trim().toLowerCase();
+                    var t = (tokenEl.value || "").trim();
+                    if (!t) {
+                        if (msgEl) msgEl.textContent = "Informe o código.";
+                        return;
+                    }
+                    var url = _apiBase() + "/api/auth/verify";
+                    console.log("[login:fallback] verify ->", url, "| user:", u);
+                    try {
+                        var r = await fetch(url, {
+                            method: "POST",
+                            credentials: "same-origin",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ username: u, token: t }),
+                        });
+                        var raw = await r.text();
+                        var d = {};
+                        try { d = raw ? JSON.parse(raw) : {}; } catch (e) {
+                            console.error("[login:fallback] verify parse error", r.status, e, raw.slice(0, 500));
+                            if (msgEl) msgEl.textContent = "Erro HTTP " + r.status + " (resposta inválida).";
+                            return;
+                        }
+                        console.log("[login:fallback] verify result", r.status, d);
+                        if (r.ok && d.status === "success") {
+                            window.location.reload();
+                        } else if (msgEl) {
+                            msgEl.textContent = (d && d.message) || ("Erro HTTP " + r.status);
+                        }
+                    } catch (err) {
+                        console.error("[login:fallback] verify exception", err);
+                        if (msgEl) msgEl.textContent = "Falha de rede ao validar token.";
+                    }
+                });
+            }
+            if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", _bindCronLoginFallback);
+            else _bindCronLoginFallback();
+        })();
+    </script>
+
+    <div id="app-shell" class="punk-bg-app relative z-10 hidden min-h-[100dvh]">
+
+    <!-- Mobile menu bar -->
+    <header class="mobile-bar-cron lg:hidden sticky top-0 z-50 flex items-center justify-between gap-2 px-3 py-2.5 border-b border-white/10 bg-[#0a0a0a]/95 safe-area-pt">
+        <button type="button" id="sidebar-open-btn" class="touch-target flex items-center justify-center rounded-lg text-gray-300 hover:bg-white/10 hover:text-white -ml-1" aria-label="Abrir menu">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <span class="text-sm sm:text-base font-bold tracking-widest text-white truncate flex-1 text-center">Server | ServerCRON</span>
+        <a href="https://github.com/abobicaduco/ServerCRON/issues" target="_blank" rel="noopener noreferrer" class="touch-target flex items-center justify-center rounded-lg text-sky-400 hover:bg-sky-500/15 px-1.5" aria-label="GitHub issues" title="Dúvidas">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </a>
+        <button type="button" onclick="forceReload()" class="adm-only reload-sync-btn touch-target px-2 flex items-center justify-center rounded-lg text-yellow-500 hover:bg-yellow-500/10" aria-label="Sincronizar cadastro com BigQuery">
+            <svg class="reload-sync-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
+    </header>
+
+    <div id="sidebar-backdrop" class="fixed inset-0 z-40 bg-black/70 opacity-0 pointer-events-none transition-opacity duration-200 lg:hidden" aria-hidden="true" role="presentation"></div>
+
+    <div id="app-layout-root" class="flex min-h-0 flex-1 h-[100dvh] lg:h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="fixed inset-y-0 left-0 z-50 flex w-[min(18rem,92vw)] flex-col border-r border-white/5 bg-[#0a0a0a] transition-transform duration-200 ease-out -translate-x-full lg:static lg:z-20 lg:w-64 lg:translate-x-0" id="sidebar">
+            <div class="p-4 sm:p-6 border-b border-white/5 flex items-start justify-between gap-2">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <div class="w-8 h-8 shrink-0 bg-gradient-to-br from-yellow-400 to-yellow-700 rounded-lg flex items-center justify-center shadow-lg shadow-yellow-900/20">
+                        <span class="text-black font-bold text-xs">SC</span>
+                    </div>
+                    <div class="min-w-0">
+                        <h1 class="text-sm sm:text-base font-bold tracking-widest text-white uppercase truncate">Server | ServerCRON</h1>
+                    </div>
+                </div>
+                <button type="button" id="sidebar-close-btn" class="lg:hidden touch-target shrink-0 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10" aria-label="Fechar menu">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+                <button onclick="switchTab('dashboard')" data-tab="dashboard" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white transition-all group">
+                    <svg class="w-5 h-5 group-hover:text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                    <span>Dashboard</span>
+                </button>
+                <button onclick="switchTab('upload')" data-tab="upload" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white transition-all group">
+                    <svg class="w-5 h-5 group-hover:text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <span>Uploaders</span>
+                </button>
+                <button onclick="switchTab('scripts')" data-tab="scripts" class="nav-item w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white transition-all group">
+                    <div class="flex items-center space-x-3">
+                        <svg class="w-5 h-5 group-hover:text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        <span>Scripts</span>
+                    </div>
+                    <span class="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-gray-400" id="badge-scripts">0</span>
+                </button>
+                <button onclick="switchTab('live')" data-tab="live" class="nav-item w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white transition-all group">
+                    <div class="flex items-center space-x-3">
+                        <svg class="w-5 h-5 group-hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span>Ao Vivo</span>
+                    </div>
+                    <span class="flex h-2 w-2 rounded-full bg-red-500 pulse-gold" id="badge-live-dot"></span>
+                </button>
+                <button onclick="switchTab('pending')" data-tab="pending" class="nav-item w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white transition-all group">
+                    <div class="flex items-center space-x-3">
+                        <svg class="w-5 h-5 group-hover:text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                        <span>Pendentes</span>
+                    </div>
+                    <span class="text-[10px] bg-orange-500/20 px-1.5 py-0.5 rounded text-orange-500 hidden" id="badge-pending">0</span>
+                </button>
+                <button onclick="switchTab('history')" data-tab="history" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white transition-all group">
+                    <svg class="w-5 h-5 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    <span>Histórico</span>
+                </button>
+                <button onclick="switchTab('jobs')" data-tab="jobs" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-white transition-all group">
+                    <svg class="w-5 h-5 group-hover:text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    <span>Agendados</span>
+                </button>
+            </nav>
+
+            <div class="shrink-0 px-3 pb-3">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2 px-1">Dúvidas</p>
+                <a href="https://github.com/abobicaduco/ServerCRON/issues" target="_blank" rel="noopener noreferrer" class="doc-github-btn flex w-full items-center justify-center gap-2 rounded-lg border border-sky-500/35 bg-sky-500/10 px-3 py-2.5 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 hover:text-sky-200 transition-all">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    <span>GitHub</span>
+                </a>
+            </div>
+
+            <div class="p-4 border-t border-white/5 bg-black/20 space-y-3">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Tema</span>
+                    <button type="button" id="theme-toggle-btn" class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-semibold text-gray-300 hover:bg-white/10" aria-label="Alternar tema">Escuro</button>
+                </div>
+                <div class="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Sessão</div>
+                    <div class="text-xs font-semibold text-white truncate" id="session-user">—</div>
+                    <div class="text-[10px] text-gray-500 mt-0.5" id="session-role">—</div>
+                    <button type="button" id="logout-btn" class="mt-2 w-full rounded-lg border border-white/10 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:bg-white/5 hover:text-white">Sair</button>
+                </div>
+                <div class="adm-only rounded-lg border border-white/10 bg-white/[0.03] p-3 space-y-2">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Convite (Outlook)</div>
+                    <p class="text-[10px] text-gray-500 leading-snug">Abre o Outlook com o texto pronto. Preencha o campo <b>Para</b> na mensagem com quem deseja convidar.</p>
+                    <button type="button" id="share-outlook-btn" class="w-full rounded-lg bg-amber-500/20 py-2.5 text-[10px] font-bold uppercase tracking-wider text-amber-200 hover:bg-amber-500/30">Abrir Outlook com convite</button>
+                </div>
+                <div class="flex items-center space-x-3 mb-1">
+                    <div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" id="status-dot"></div>
+                    <span class="text-xs font-semibold text-gray-300 uppercase tracking-tighter" id="status-label">Sistema Online</span>
+                </div>
+                <div class="space-y-1">
+                    <div class="text-[10px] text-gray-500 flex justify-between">
+                        <span>Uptime</span>
+                        <span class="text-gray-300 font-mono" id="sidebar-uptime">--:--:--</span>
+                    </div>
+                    <div class="text-[10px] text-gray-500 flex justify-between">
+                        <span>Versão</span>
+                        <span class="text-gray-300" id="server-version">--</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main id="main-panel" class="flex flex-1 flex-col min-w-0 min-h-0 bg-[#050505] relative">
+            <!-- Header (desktop / tablet) -->
+            <header class="theme-header-bar hidden sm:flex border-b border-white/5 flex-col gap-2 py-2.5 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-6 flex-shrink-0 bg-[#050505]/90 sticky top-0 z-10">
+                <div class="flex min-w-0 flex-1 items-center gap-4">
+                    <h2 class="text-base sm:text-lg font-bold text-white tracking-tight truncate" id="page-title">Dashboard</h2>
+                    <a href="https://github.com/abobicaduco/ServerCRON/issues" target="_blank" rel="noopener noreferrer" class="doc-github-link hidden sm:inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-[11px] font-semibold text-sky-300 hover:bg-sky-500/20 hover:text-sky-200 transition-all">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Dúvidas
+                    </a>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 sm:gap-4">
+                    <div class="flex min-w-0 items-stretch rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 sm:px-4 sm:py-2.5">
+                        <div class="flex min-w-[5.25rem] flex-col justify-center gap-1 pr-3 sm:min-w-[5.75rem] sm:pr-4">
+                            <span class="text-[9px] font-semibold uppercase tracking-wider text-white leading-tight">Próxima atualização</span>
+                            <span id="bq-countdown" class="text-sm font-mono font-bold tabular-nums text-yellow-500 leading-none">--:--</span>
+                        </div>
+                        <div class="w-px shrink-0 bg-white/10 self-stretch" aria-hidden="true"></div>
+                        <div class="flex min-w-0 flex-1 flex-col justify-center gap-1 pl-3 sm:max-w-[14rem] sm:pl-4">
+                            <span id="last-refresh-label" class="text-[9px] font-semibold uppercase tracking-wider text-white leading-tight">Última atualização</span>
+                            <span id="last-refresh" class="truncate text-sm font-mono font-semibold tabular-nums text-white">--:--:--</span>
+                        </div>
+                    </div>
+                    <button type="button" onclick="forceReload()" class="adm-only reload-sync-btn touch-target sm:min-h-0 sm:min-w-0 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-semibold text-white transition-all flex items-center justify-center gap-2" aria-label="Sincronizar cadastro com BigQuery">
+                        <svg class="reload-sync-icon w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span class="hidden sm:inline">Sincronizar cadastro</span>
+                        <span class="sm:hidden">Sync</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Subheader mobile: title + status strip -->
+            <div class="sm:hidden px-4 py-3 border-b border-white/5 bg-[#050505]/95 flex flex-col gap-2">
+                <h2 class="text-base font-bold text-white tracking-tight" id="page-title-mobile">Dashboard</h2>
+                <div class="grid grid-cols-2 gap-0 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-left">
+                    <div class="flex flex-col gap-1 min-w-0 pr-2 border-r border-white/10">
+                        <span class="text-[8px] font-semibold uppercase tracking-wider text-white leading-tight">Próxima atualização</span>
+                        <span id="bq-countdown-mobile" class="text-base font-mono font-bold tabular-nums text-yellow-500 leading-none">--:--</span>
+                    </div>
+                    <div class="flex flex-col gap-1 min-w-0 pl-3">
+                        <span id="last-refresh-mobile-label" class="text-[8px] font-semibold uppercase tracking-wider text-white leading-tight">Última atualização</span>
+                        <span id="last-refresh-mobile" class="truncate text-base font-mono font-semibold tabular-nums text-white leading-none">--:--:--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scrollable Area -->
+            <div class="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:p-6 scroll-smooth">
+                
+                <!-- DASHBOARD TAB -->
+                <div id="tab-dashboard" class="tab-content active space-y-6">
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5" id="stats-grid">
+                        <!-- Stats will be injected here -->
+                    </div>
+
+                    <!-- Taxa de sucesso / erro (histórico do ServerCron) — mesmos cards visuais que CPU/RAM (alinhado ao dashboard.html) -->
+                    <div id="dash-history-stats-wrap" class="bg-white/[0.02] border border-white/5 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-4">
+                        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                            <div>
+                                <h3 class="text-xs sm:text-sm font-bold text-white uppercase tracking-widest">Execuções — taxa no histórico</h3>
+                                <p class="text-[10px] text-gray-500 mt-1 max-w-3xl leading-relaxed">
+                                    O ServerCron corre o script com <code class="text-gray-400">subprocess</code> e regista <strong class="text-gray-400">sucesso</strong> (código <strong>0</strong>), <strong class="text-gray-400">sem dados</strong> (código <strong>2</strong>, convenção típica), <strong class="text-gray-400">erro</strong> (outro código ≠ 0), ou <strong class="text-gray-400">killed</strong> se encerrado pelo painel. As taxas abaixo <strong class="text-gray-400">não incluem</strong> execuções killed.
+                                    Apenas execuções ainda no histórico local (últimas <span id="dash-stats-max" class="font-mono text-gray-400">—</span> runs).
+                                </p>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                                <input type="search" id="dash-stats-script-filter" autocomplete="off" placeholder="Filtrar por nome do script…" class="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-yellow-500 w-full sm:w-56">
+                                <button type="button" id="dash-stats-apply" class="px-4 py-2 bg-yellow-500 text-black rounded-lg text-xs font-bold hover:bg-yellow-400 transition-all">Aplicar</button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
+                            <div class="space-y-3 rounded-lg border border-white/[0.04] bg-white/[0.01] p-3 sm:p-4">
+                                <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                                    <svg class="w-4 h-4 text-amber-500/80 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                                    <span>Hoje <span class="text-gray-600 font-mono normal-case" id="dash-stats-today-date"></span></span>
+                                </div>
+                                <div id="dash-history-today-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 min-h-[5.5rem]"></div>
+                            </div>
+                            <div class="space-y-3 rounded-lg border border-white/[0.04] bg-gradient-to-br from-white/[0.02] to-transparent p-3 sm:p-4">
+                                <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                                    <svg class="w-4 h-4 text-sky-500/80 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 18L9 11.25l4.306 4.306L21.75 3.75M12.75 3.75h8.25v8.25"></path></svg>
+                                    <span>Últimos 7 dias</span>
+                                </div>
+                                <div id="dash-history-week-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 min-h-[5.5rem]"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold uppercase text-gray-500 mb-2">Por script (7 dias, top 25)</div>
+                            <div class="overflow-x-auto rounded-lg border border-white/5">
+                                <table class="w-full min-w-[520px] text-left text-xs border-collapse">
+                                    <thead>
+                                        <tr class="text-[10px] uppercase text-gray-500 border-b border-white/5 bg-white/[0.02]">
+                                            <th class="px-3 py-2">Script</th>
+                                            <th class="px-3 py-2 text-right">Sucesso</th>
+                                            <th class="px-3 py-2 text-right">Erro</th>
+                                            <th class="px-3 py-2 text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dash-stats-by-script" class="divide-y divide-white/5"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-3 sm:gap-5 lg:gap-6">
+                        <!-- Running Table -->
+                        <div class="xl:col-span-2 bg-white/[0.02] border border-white/5 rounded-xl sm:rounded-2xl overflow-hidden min-w-0">
+                            <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-white/5 flex flex-wrap justify-between items-center gap-2 bg-white/[0.01]">
+                                <h3 class="text-xs sm:text-sm font-bold text-white uppercase tracking-widest">Processos em Execução</h3>
+                                <span class="text-[10px] text-gray-500 font-mono" id="running-count-label">0 ativos</span>
+                            </div>
+                            <div class="table-responsive overflow-x-auto" id="dash-running">
+                                <!-- Table injected here -->
+                            </div>
+                        </div>
+
+                        <!-- Queued Table -->
+                        <div class="bg-white/[0.02] border border-white/5 rounded-xl sm:rounded-2xl overflow-hidden min-w-0 flex flex-col">
+                            <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+                                <h3 class="text-xs sm:text-sm font-bold text-white uppercase tracking-widest">Aguardando Rodar</h3>
+                                <svg class="w-4 h-4 text-yellow-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M6 5l7 7-7 7"></path></svg>
+                            </div>
+                            <div id="dash-queued" class="p-3 sm:p-4 space-y-2 sm:space-y-3 max-h-[50vh] sm:max-h-none xl:max-h-[calc(100dvh-15rem)] overflow-y-auto">
+                                <!-- Queued items injected here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- UPLOAD (Uploaders embed) -->
+                <div id="tab-upload" class="tab-content space-y-4">
+                    <div id="uploaders-duo-hint" class="hidden rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100/90 leading-relaxed">
+                        <p class="font-bold uppercase tracking-wider text-amber-400 mb-1">Modo duas portas</p>
+                        <p>O painel de envio roda em outra porta; o login pode ser separado do Cron. Use a mesma rede e faça login no painel embutido se solicitado.</p>
+                    </div>
+                    <div class="cron-uploaders-embed-shell relative w-full rounded-xl border border-white/5 bg-white/[0.02] overflow-hidden">
+                        <iframe id="uploaders-embed-frame" title="Painel de envio — ServerCRON" class="cron-uploaders-embed-iframe w-full border-0 bg-transparent block" loading="lazy"></iframe>
+                    </div>
+                </div>
+
+                <!-- SCRIPTS TAB -->
+                <div id="tab-scripts" class="tab-content space-y-6">
+                    <div class="flex flex-col gap-4 mb-4">
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Área</p>
+                            <div id="area-chips" class="flex flex-wrap gap-2 max-h-[min(40vh,520px)] overflow-y-auto overscroll-contain pb-1 pr-1">
+                                <!-- Area chips injected here -->
+                            </div>
+                        </div>
+                        <div class="relative flex-1 max-w-2xl xl:max-w-3xl">
+                            <input type="search" id="script-search" autocomplete="off" enterkeyhint="search" placeholder="Buscar por nome do script ou área (todas as áreas)" class="w-full bg-white/5 border border-white/10 rounded-xl px-10 py-2.5 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 outline-none transition-all">
+                            <svg class="w-5 h-5 text-gray-500 absolute left-3 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                    </div>
+                    <div id="script-search-hint" class="hidden text-[11px] text-amber-500/90 font-medium"></div>
+                    <div id="area-scripts-loading" class="hidden text-center text-xs text-gray-500 py-8">Carregando scripts da área…</div>
+                    <div id="areas-container" class="space-y-4">
+                        <!-- Single-area script cards injected here -->
+                    </div>
+                </div>
+
+                <!-- LIVE TAB -->
+                <div id="tab-live" class="tab-content space-y-4 sm:space-y-6">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+                        <div class="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+                            <button type="button" onclick="switchTab('dashboard')" class="shrink-0 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-gray-300 hover:border-yellow-500/40 hover:bg-yellow-500/10 hover:text-yellow-200 transition-all">
+                                ← Dashboard
+                            </button>
+                            <div class="flex items-center space-x-3 min-w-0">
+                                <div class="w-3 h-3 shrink-0 bg-red-500 rounded-full animate-pulse"></div>
+                                <h3 class="text-base sm:text-lg font-bold text-white truncate">Processos em execução</h3>
+                            </div>
+                        </div>
+                        <button type="button" onclick="killAll()" class="adm-only touch-target sm:min-h-0 w-full sm:w-auto px-4 py-2.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-xl text-xs font-bold transition-all">
+                            Encerrar Todos
+                        </button>
+                    </div>
+                    <div class="bg-white/[0.02] border border-white/5 rounded-xl sm:rounded-2xl overflow-hidden table-responsive overflow-x-auto">
+                        <table class="w-full min-w-[720px] text-left border-collapse">
+                            <thead>
+                                <tr class="text-[10px] uppercase tracking-widest text-gray-500 border-b border-white/5 bg-white/[0.01]">
+                                    <th class="px-6 py-4">Script</th>
+                                    <th class="px-6 py-4">Área</th>
+                                    <th class="px-6 py-4">PID</th>
+                                    <th class="px-6 py-4">Prio</th>
+                                    <th class="px-6 py-4">Duração</th>
+                                    <th class="px-6 py-4">Recursos</th>
+                                    <th class="px-6 py-4 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="live-tbody" class="divide-y divide-white/5">
+                                <!-- Live processes injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- PENDING TAB -->
+                <div id="tab-pending" class="tab-content space-y-6">
+                    <div class="bg-white/[0.02] border border-white/5 rounded-xl sm:rounded-2xl overflow-hidden table-responsive overflow-x-auto">
+                        <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-white/5 flex flex-wrap justify-between items-center gap-2 bg-white/[0.01]">
+                            <h3 class="text-xs sm:text-sm font-bold text-white uppercase tracking-widest">Scripts Pendentes (Catch-up)</h3>
+                            <span id="pending-date" class="text-[10px] text-gray-500 font-mono">--</span>
+                        </div>
+                        <table class="w-full min-w-[640px] text-left border-collapse">
+                            <thead>
+                                <tr class="text-[10px] uppercase tracking-widest text-gray-500 border-b border-white/5">
+                                    <th class="px-6 py-4">Script</th>
+                                    <th class="px-6 py-4">Área</th>
+                                    <th class="px-6 py-4">Cron</th>
+                                    <th class="px-6 py-4">Esperado</th>
+                                    <th class="px-6 py-4">Prio</th>
+                                    <th class="px-6 py-4 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pending-tbody" class="divide-y divide-white/5">
+                                <!-- Pending scripts injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- HISTORY TAB -->
+                <div id="tab-history" class="tab-content space-y-6">
+                    <div class="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 mb-4 sm:mb-6 bg-white/[0.02] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-white/5">
+                        <input type="text" id="hist-script" placeholder="Filtrar python_name…" class="bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-yellow-500">
+                        <select id="hist-status" class="rounded-lg px-4 py-2 text-xs outline-none focus:ring-2 focus:ring-yellow-500/70 min-w-[11rem]">
+                            <option value="">Todos Status</option>
+                            <option value="success">Sucesso</option>
+                            <option value="error">Erro</option>
+                        </select>
+                        <button onclick="loadHistory()" class="px-4 py-2 bg-yellow-500 text-black rounded-lg text-xs font-bold hover:bg-yellow-400 transition-all">Filtrar</button>
+                    </div>
+                    <div class="bg-white/[0.02] border border-white/5 rounded-xl sm:rounded-2xl overflow-hidden table-responsive overflow-x-auto">
+                        <table class="w-full min-w-[760px] text-left border-collapse">
+                            <thead>
+                                <tr class="text-[10px] uppercase tracking-widest text-gray-500 border-b border-white/5 bg-white/[0.01]">
+                                    <th class="px-4 sm:px-6 py-3 sm:py-4">Script</th>
+                                    <th class="px-4 sm:px-6 py-3 sm:py-4">Status</th>
+                                    <th class="px-4 sm:px-6 py-3 sm:py-4">Início</th>
+                                    <th class="px-4 sm:px-6 py-3 sm:py-4">Duração</th>
+                                    <th class="px-4 sm:px-6 py-3 sm:py-4">Trigger</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hist-tbody" class="divide-y divide-white/5 text-xs">
+                                <!-- History injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- JOBS TAB -->
+                <div id="tab-jobs" class="tab-content space-y-6">
+                    <div class="bg-white/[0.02] border border-white/5 rounded-xl sm:rounded-2xl overflow-hidden table-responsive overflow-x-auto">
+                        <table class="w-full min-w-[420px] text-left border-collapse">
+                            <thead>
+                                <tr class="text-[10px] uppercase tracking-widest text-gray-500 border-b border-white/5 bg-white/[0.01]">
+                                    <th class="px-6 py-4">python_name</th>
+                                    <th class="px-6 py-4">Próxima execução</th>
+                                    <th class="px-6 py-4 text-right">Countdown</th>
+                                </tr>
+                            </thead>
+                            <tbody id="jobs-tbody" class="divide-y divide-white/5 text-xs">
+                                <!-- Jobs injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    </div><!-- #app-shell -->
+
+    <!-- Toast Notifications -->
+    <div id="toasts" class="fixed bottom-4 left-4 right-4 z-50 flex flex-col gap-2 sm:bottom-auto sm:left-auto sm:right-6 sm:top-6 pointer-events-none [&>*]:pointer-events-auto"></div>
+
+    
+    {% endif %}
+</body>
+</html>
