@@ -57,7 +57,3 @@ Quase sempre **sim**, desde que:
 4. Portas **5001** (e **5002** em modo duas portas) não estejam bloqueadas por firewall local.
 
 Não há garantia sem testar no teu PC da empresa (política de rede, proxy, versão Python, perfil Outlook). Usa o checklist acima e o primeiro arranque no terminal para ver erros explícitos (BigQuery, import, porta em uso).
-
-## Licença
-
-O ficheiro `LICENSE` foi removido na consolidação do repositório; se precisares de licença explícita para redistribuição interna, acrescenta-a de acordo com a política do banco.
