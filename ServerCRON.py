@@ -10,12 +10,44 @@ Painel: `ServerCRON.html` (vistas Cron + Uploaders via `portal_view`). Assets: `
 Modos: (1) predefinido — uma porta (SERVERCRON_DUO_PORTS=0): Uploaders em / e Cron em /cron/, mesma sessão; (2) opcional — SERVERCRON_DUO_PORTS=1 com SERVERCRON_UP_PORT / SERVERCRON_CRON_PORT.
 Dados do Cron (BigQuery + sqlite): mesma pasta que este ficheiro (`server_cron.sqlite`; legado: nome antigo com prefixo ser+vidor_cron.sqlite).
 Tabela de permissões no BQ: default ``… .ServerCRON``; override: env ``SERVERCRON_BQ_PERMISSIONS_TABLE`` (ex.: ``outro_nome`` ou ``proj.dataset.tabela``).
+
+Variáveis de ambiente: além do SO, o processo lê opcionalmente um ficheiro ``.env`` na mesma pasta que este script (ou pasta do ``.exe`` em modo frozen). Chaves já definidas no ambiente **não** são sobrescritas. Ver ``.env.example`` no repositório.
 """
 from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
+
+
+def _load_dotenv_if_present(base_dir: Path) -> None:
+    """Populate os.environ from base_dir/.env (KEY=VALUE lines). Does not override existing keys."""
+    path = base_dir / ".env"
+    if not path.is_file():
+        return
+    try:
+        raw = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return
+    for line in raw.splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        if "=" not in s:
+            continue
+        key, _, val = s.partition("=")
+        key = key.strip()
+        if not key or key.startswith("#"):
+            continue
+        val = val.strip()
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in "\"'":
+            val = val[1:-1]
+        if key not in os.environ:
+            os.environ[key] = val
+
+
+_env_base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+_load_dotenv_if_present(_env_base)
 
 # Operator defaults when this process is the main script — must run before PANEL_HTML_DIR.
 if __name__ == "__main__":

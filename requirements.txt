@@ -1,0 +1,16 @@
+# Match versions used by ServerCRON.py embedded bootstrap() (Cron block).
+# Install before first run: pip install -r requirements.txt
+flask==3.0.3
+flask-cors==4.0.1
+waitress==3.0.0
+pandas==2.2.2
+openpyxl==3.1.2
+psutil==5.9.8
+pytz==2024.1
+croniter==2.0.5
+google-cloud-bigquery==3.20.1
+db-dtypes==1.2.0
+sqlalchemy==2.0.30
+apscheduler==3.10.4
+# Windows only (Outlook COM login / monitor / invites):
+pywin32>=306
