@@ -666,7 +666,7 @@
                 class="flex w-full min-w-0 items-stretch justify-between sm:justify-center gap-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 sm:px-3 sm:py-2">
                 <div class="flex min-w-0 flex-col justify-center pr-2 sm:pr-4">
                     <span class="text-[8px] font-bold uppercase tracking-wider text-gray-500 leading-tight">Próxima
-                        sincronização BQ</span>
+                        sincronização (registo)</span>
                     <span id="up-bq-countdown" class="text-sm font-mono font-bold text-yellow-500 tabular-nums leading-none"
                         title="Agendador a cada 30 min (mesmo do ServerCron)">--:--</span>
                 </div>
@@ -675,7 +675,7 @@
                 <button type="button" id="up-admin-bq-resync"
                     class="shrink-0 self-center rounded-md border border-brandgold/30 bg-brandgold/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-brandgold transition hover:bg-brandgold/20"
                     title="Força agora: permissões, cadastro e jobs (mesmo efeito que Sincronizar no Cron)">Sincronizar
-                    BQ</button>
+                    registo</button>
                 {% endif %}
             </div>
         </div>
@@ -1816,7 +1816,7 @@
         <a href="https://github.com/abobicaduco/ServerCRON/issues" target="_blank" rel="noopener noreferrer" class="touch-target flex items-center justify-center rounded-lg text-sky-400 hover:bg-sky-500/15 px-1.5" aria-label="GitHub issues" title="Dúvidas">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </a>
-        <button type="button" onclick="forceReload()" class="adm-only reload-sync-btn touch-target px-2 flex items-center justify-center rounded-lg text-yellow-500 hover:bg-yellow-500/10" aria-label="Sincronizar cadastro com BigQuery">
+        <button type="button" onclick="forceReload()" class="adm-only reload-sync-btn touch-target px-2 flex items-center justify-center rounded-lg text-yellow-500 hover:bg-yellow-500/10" aria-label="Sincronizar cadastro com a planilha">
             <svg class="reload-sync-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
         </button>
     </header>
@@ -1944,7 +1944,7 @@
                             <span id="last-refresh" class="truncate text-sm font-mono font-semibold tabular-nums text-white">--:--:--</span>
                         </div>
                     </div>
-                    <button type="button" onclick="forceReload()" class="adm-only reload-sync-btn touch-target sm:min-h-0 sm:min-w-0 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-semibold text-white transition-all flex items-center justify-center gap-2" aria-label="Sincronizar cadastro com BigQuery">
+                    <button type="button" onclick="forceReload()" class="adm-only reload-sync-btn touch-target sm:min-h-0 sm:min-w-0 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-semibold text-white transition-all flex items-center justify-center gap-2" aria-label="Sincronizar cadastro com a planilha">
                         <svg class="reload-sync-icon w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                         <span class="hidden sm:inline">Sincronizar cadastro</span>
                         <span class="sm:hidden">Sync</span>
