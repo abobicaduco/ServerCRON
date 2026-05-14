@@ -13,6 +13,7 @@ Painel: `ServerCRON.html` (vistas Cron + Uploaders via `portal_view`). Assets: `
 Modos: (1) predefinido — uma porta (SERVERCRON_DUO_PORTS=0): Uploaders em / e Cron em /cron/, mesma sessão; (2) opcional — SERVERCRON_DUO_PORTS=1 com SERVERCRON_UP_PORT / SERVERCRON_CRON_PORT.
 Dados do Cron (sqlite local + planilha ``registro_automacoes.xlsx``): mesma pasta que este ficheiro (`server_cron.sqlite`; legado: nome antigo com prefixo ser+vidor_cron.sqlite).
 Tabela de permissões e cadastro: ficheiro **registro_automacoes.xlsx** (folhas ``USERS`` e ``AUTOMACOES``); caminho via ``SERVERCRON_REGISTRO_XLSX`` / ``SERVERCRON_REGISTRO_DIR``.
+Logs (Uploaders + Cron): ``<pasta do ServerCRON>/logs/AAAA-MM-DD/<uuid>.log`` (fuso ``America/Sao_Paulo``); novo UUID em cada arranque; à meia-noite SP abre novo ficheiro e recarrega agendamentos da planilha (o processo não reinicia).
 
 Variáveis de ambiente: além do SO, o processo lê opcionalmente um ficheiro ``.env`` na mesma pasta que este script (ou pasta do ``.exe`` em modo frozen). Chaves já definidas no ambiente **não** são sobrescritas. Ver ``.env.example`` no repositório.
 """
@@ -86,6 +87,7 @@ import re
 from html import escape
 import socket
 import string
+import uuid
 import threading
 import time
 import webbrowser
@@ -252,9 +254,14 @@ _BRAND_LOGO_CANDIDATES: tuple[Path, ...] = (
     CONFIG_MODULES_DIR / "logo.png",
     PANEL_HTML_DIR / "assets" / "logo.png",
 )
-UPLOADERS_LOG_DIR: Path = (
-    _prefer_new_home_file(CONFIG_MODULES_DIR, "server_uploaders_logs", "vidor_uploaders_logs")
-    / START_TIME.strftime("%Y-%m-%d")
+# Server file logs: SCRIPT_DIR/logs/YYYY-MM-DD/<uuid>.log (America/Sao_Paulo calendar day).
+_LOG_DAY_STR: str = START_TIME.date().isoformat()
+_LOG_SESSION_UUID: str = str(uuid.uuid4())
+UPLOADERS_LOG_DIR: Path = SCRIPT_DIR / "logs" / _LOG_DAY_STR
+_SERVER_LOG_FILE_PATH: Path = UPLOADERS_LOG_DIR / f"{_LOG_SESSION_UUID}.log"
+_SERVER_LOG_FORMATTER = logging.Formatter(
+    "%(asctime)s | %(levelname)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -266,31 +273,26 @@ class LoggerMaster:
 
     @staticmethod
     def setup(name: str = "ServerCRON") -> logging.Logger:
-        log_dir = UPLOADERS_LOG_DIR / name
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_file = log_dir / f"{name}_{START_TIME.strftime('%H%M%S')}.log"
+        UPLOADERS_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
         lg = logging.getLogger(name)
         lg.setLevel(logging.DEBUG)
         lg.propagate = False
 
         if not lg.handlers:
-            fmt = logging.Formatter(
-                "%(asctime)s | %(levelname)s | %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S",
-            )
-            fh = logging.FileHandler(log_file, encoding="utf-8")
-            fh.setFormatter(fmt)
+            fh = logging.FileHandler(_SERVER_LOG_FILE_PATH, encoding="utf-8")
+            fh.setFormatter(_SERVER_LOG_FORMATTER)
             lg.addHandler(fh)
 
             ch = logging.StreamHandler(sys.stdout)
-            ch.setFormatter(fmt)
+            ch.setFormatter(_SERVER_LOG_FORMATTER)
             lg.addHandler(ch)
 
         return lg
 
 
 logger = LoggerMaster.setup()
+logger.info("Log em ficheiro (sessao): %s", _SERVER_LOG_FILE_PATH)
 HAS_REGISTRY_XLSX = bool(HAS_PANDAS and REGISTRO_AUTOMAOES_PATH.is_file())
 if HAS_REGISTRY_XLSX:
     logger.info("Registro local: %s", REGISTRO_AUTOMAOES_PATH)
@@ -2334,16 +2336,24 @@ DIRETORIO_AUTOMACOES = PATH_AUTOMACOES
 _DASHBOARD_FILE = PATH_DASHBOARD_HTML
 
 # ==============================================================
-# LOGGING (Cron) — so consola; nenhum ficheiro .log no disco
+# LOGGING (Cron) — consola + mesmo ficheiro que ServerCRON (logs/AAAA-MM-DD/uuid.log)
 # ==============================================================
 _log_formatter = logging.Formatter(
     "%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-_console_handler = logging.StreamHandler(sys.stdout)
-_console_handler.setFormatter(_log_formatter)
-logging.basicConfig(level=logging.INFO, handlers=[_console_handler])
 logger_cron = logging.getLogger("ServerCron")
+logger_cron.setLevel(logging.INFO)
+logger_cron.propagate = False
+_cron_console_handler = logging.StreamHandler(sys.stdout)
+_cron_console_handler.setFormatter(_log_formatter)
+logger_cron.addHandler(_cron_console_handler)
+_cron_file_handler = logging.FileHandler(_SERVER_LOG_FILE_PATH, encoding="utf-8")
+_cron_file_handler.setFormatter(_SERVER_LOG_FORMATTER)
+logger_cron.addHandler(_cron_file_handler)
+_root_console = logging.StreamHandler(sys.stdout)
+_root_console.setFormatter(_log_formatter)
+logging.basicConfig(level=logging.INFO, handlers=[_root_console])
 
 try:
     from croniter import croniter as _Croniter
@@ -3362,6 +3372,61 @@ _reload_ts_lock = threading.Lock()
 _SCHEDULER_PROTECTED_JOB_IDS = frozenset({"hot_reload_job", "catchup_job"})
 
 
+def _remove_all_file_handlers(lg: logging.Logger) -> None:
+    for h in list(lg.handlers):
+        if isinstance(h, logging.FileHandler):
+            lg.removeHandler(h)
+            with suppress(Exception):
+                h.flush()
+                h.close()
+
+
+def _rollover_server_calendar_day() -> None:
+    """New America/Sao_Paulo calendar day: new log file + reload scheduler from workbook."""
+    global _LOG_DAY_STR, _LOG_SESSION_UUID, _SERVER_LOG_FILE_PATH, UPLOADERS_LOG_DIR, _cron_file_handler
+    new_day = datetime.now(TIMEZONE).date().isoformat()
+    if new_day == _LOG_DAY_STR:
+        return
+    old_day = _LOG_DAY_STR
+    _LOG_DAY_STR = new_day
+    _LOG_SESSION_UUID = str(uuid.uuid4())
+    new_dir = SCRIPT_DIR / "logs" / _LOG_DAY_STR
+    new_dir.mkdir(parents=True, exist_ok=True)
+    new_path = new_dir / f"{_LOG_SESSION_UUID}.log"
+    for lg in (logger, logger_cron):
+        _remove_all_file_handlers(lg)
+    fh_main = logging.FileHandler(new_path, encoding="utf-8")
+    fh_main.setFormatter(_SERVER_LOG_FORMATTER)
+    logger.addHandler(fh_main)
+    _cron_file_handler = logging.FileHandler(new_path, encoding="utf-8")
+    _cron_file_handler.setFormatter(_SERVER_LOG_FORMATTER)
+    logger_cron.addHandler(_cron_file_handler)
+    _SERVER_LOG_FILE_PATH = new_path
+    UPLOADERS_LOG_DIR = new_dir
+    logger.info(
+        "[DAY_ROLL] America/Sao_Paulo: %s -> %s | novo ficheiro %s",
+        old_day,
+        _LOG_DAY_STR,
+        new_path.name,
+    )
+    try:
+        if getattr(_scheduler, "running", False):
+            recarregar_agendamentos()
+            logger.info("[DAY_ROLL] Agendamentos e folha AUTOMACOES recarregados.")
+    except Exception:
+        logger.exception("[DAY_ROLL] Falha ao recarregar agendamentos.")
+
+
+def _day_rollover_watcher_loop() -> None:
+    while True:
+        time.sleep(45)
+        try:
+            _rollover_server_calendar_day()
+        except Exception:
+            with suppress(Exception):
+                logger.exception("[DAY_ROLL] watcher")
+
+
 def _job_wrapper(python_name: str, path: str, area_name: str, priority: int) -> None:
     enqueue_script(
         python_name=python_name, path=path, area_name=area_name,
@@ -3425,8 +3490,9 @@ def iniciar_scheduler() -> None:
     threading.Thread(
         target=_catchup_pending_scripts, daemon=True, name="boot-catchup"
     ).start()
-
-def get_jobs_info() -> list[dict]:
+    threading.Thread(
+        target=_day_rollover_watcher_loop, daemon=True, name="servercron-day-rollover"
+    ).start()
     jobs = []
     for job in _scheduler.get_jobs():
         nrt = job.next_run_time
