@@ -4,6 +4,9 @@ Stack Uploaders + Cron; branding e caminhos via env.
 
 Arranque:
     python ServerCRON.py
+    python server.py
+
+No arranque como programa principal (``python ServerCRON.py`` ou ``python server.py``), se existir ``requirements.txt`` na mesma pasta, corre **sempre** ``pip install -r requirements.txt`` antes de carregar o resto (comportamento idempotente). O atalho ``server.py`` apenas delega para ``ServerCRON.py``.
 
 Painel: `ServerCRON.html` (vistas Cron + Uploaders via `portal_view`). Assets: `ServerCRON.css`, `ServerCRON.js`.
 
@@ -18,6 +21,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+import subprocess
 
 
 def _load_dotenv_if_present(base_dir: Path) -> None:
@@ -49,8 +53,25 @@ def _load_dotenv_if_present(base_dir: Path) -> None:
 _env_base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 _load_dotenv_if_present(_env_base)
 
+
+def _pip_sync_requirements_txt(base_dir: Path) -> None:
+    """Run ``pip install -r requirements.txt`` when that file exists (idempotent). Only for ``python ServerCRON.py``."""
+    req = base_dir / "requirements.txt"
+    if not req.is_file():
+        return
+    print("[BOOT] pip install -r requirements.txt …", flush=True)
+    try:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "-r", str(req)],
+        )
+    except subprocess.CalledProcessError as exc:
+        print("[BOOT] Falha ao instalar dependências a partir de requirements.txt.", file=sys.stderr, flush=True)
+        raise SystemExit(1) from exc
+
+
 # Operator defaults when this process is the main script — must run before PANEL_HTML_DIR.
 if __name__ == "__main__":
+    _pip_sync_requirements_txt(_env_base)
     _op_root = Path(__file__).resolve().parent
     os.environ.setdefault("SERVERCRON_PANEL_DIR", str(_op_root))
     os.environ.setdefault("SERVERCRON_DUO_PORTS", "0")
@@ -65,7 +86,6 @@ import re
 from html import escape
 import socket
 import string
-import subprocess
 import threading
 import time
 import webbrowser

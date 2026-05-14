@@ -18,11 +18,12 @@ git clone https://github.com/abobicaduco/ServerCRON.git
 cd ServerCRON
 python -m venv .venv
 .\.venv\Scripts\activate
-pip install -r requirements.txt
 copy .env.example .env
 ```
 
-Edite **`.env`** com o prefixo BigQuery real e o domínio de e-mail. O ficheiro deve ficar **na mesma pasta** que `ServerCRON.py`.
+Ao correr **`python ServerCRON.py`**, se existir **`requirements.txt`** na pasta do projecto, o próprio script executa **`pip install -r requirements.txt`** no início (sempre que inicias o `.py`). O passo `pip install -r requirements.txt` manual acima é opcional, mas útil para validar o venv antes da primeira vez.
+
+Edite **`.env`** (copiado de `.env.example`) com o prefixo BigQuery real e o domínio de e-mail. O ficheiro deve ficar **na mesma pasta** que `ServerCRON.py`.
 
 > O programa **não** usa `python-dotenv`. Carrega linhas `CHAVE=valor` de `.env` no arranque **sem** sobrescrever variáveis que já existam no Windows ou no terminal.
 
@@ -32,7 +33,9 @@ Edite **`.env`** com o prefixo BigQuery real e o domínio de e-mail. O ficheiro 
 python ServerCRON.py
 ```
 
-Por defeito: **uma porta** (`SERVERCRON_DUO_PORTS=0`), Uploaders em `/` e Cron em `/cron/`. O bloco interno do Cron pode instalar dependências em falta via `pip` (bootstrap); mesmo assim recomenda-se `requirements.txt` antes do primeiro uso para evitar falhas de import no topo do ficheiro.
+Equivalente: ``python server.py`` (ficheiro fino que executa ``ServerCRON.py``).
+
+Por defeito: **uma porta** (`SERVERCRON_DUO_PORTS=0`), Uploaders em `/` e Cron em `/cron/`. O bloco interno do Cron mantém um bootstrap `pip` para pacotes do agendador; o **`requirements.txt`** na raiz é instalado **no início** de cada `python ServerCRON.py` quando o ficheiro existe.
 
 ## BigQuery
 
@@ -51,7 +54,7 @@ Lista completa de variáveis: ver **`.env.example`** e a docstring no topo de **
 
 Quase sempre **sim**, desde que:
 
-1. Dependências estejam instaladas (`pip install -r requirements.txt`).
+1. Dependências: ao correr **`python ServerCRON.py`**, o script corre **`pip install -r requirements.txt`** se o ficheiro existir (podes fazer o mesmo comando manualmente antes, para falhar cedo no venv).
 2. **`.env`** (ou variáveis de sistema) tenham **`SERVERCRON_BQ_DATASET_PREFIX`** correto (ou ficheiro `servercron_bq_dataset_prefix.txt`) e que o utilizador tenha **permissão BQ** de leitura (e admins de escrita na tabela de permissões).
 3. **Outlook / pywin32** estejam alinhados ao ambiente corporativo se usarem fluxos de e-mail.
 4. Portas **5001** (e **5002** em modo duas portas) não estejam bloqueadas por firewall local.
