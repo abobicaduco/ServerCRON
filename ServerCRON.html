@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="application-name" content="Server | ServerCRON">
+    <meta name="application-name" content="ServerCRON">
     <meta name="theme-color" content="#0A0A0A">
-    <title>Server | ServerCRON</title>
+    <title>ServerCRON</title>
     <script src="https://cdn.tailwindcss.com"></script>
     {% if portal_view == 'uploaders' %}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% endif %}
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='server.css') }}" />
-    <script src="{{ url_for('static', filename='server.js') }}" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='ServerCRON.css') }}" />
+    <script src="{{ url_for('static', filename='ServerCRON.js') }}" defer></script>
     {% if portal_view == 'cron' %}
     <script>
       (function () {
@@ -654,7 +654,7 @@
                 <img src="{{ url_for('logo_brand') }}" alt="Organization" width="40" height="40" loading="eager"
                     class="w-10 h-10 shrink-0 object-contain rounded-lg border border-brandgold/40 bg-black/30 shadow-[0_0_15px_rgba(211,173,101,0.15)]" />
                 <div class="hidden sm:block min-w-0">
-                    <h1 class="text-white font-bold text-sm tracking-tight">Server | ServerCRON</h1>
+                    <h1 class="text-white font-bold text-sm tracking-tight">ServerCRON</h1>
                 </div>
             </div>
         </div>
@@ -704,7 +704,7 @@
         {% endif %}
     </header>
 
-    <main class="punk-bg-app relative z-10 flex-grow flex flex-col lg:flex-row overflow-hidden min-h-0">
+    <main class="server-app-shell relative z-10 flex-grow flex flex-col lg:flex-row overflow-hidden min-h-0">
 
         {% if page == 'login' %}
         <div class="flex-grow flex items-center justify-center p-6 sm:p-10">
@@ -1681,7 +1681,7 @@
             <div class="mb-8 flex items-center gap-4">
                 <div class="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-700 text-sm sm:text-base font-bold text-black shadow-lg">SC</div>
                 <div>
-                    <h1 class="login-title text-xl sm:text-2xl font-bold tracking-tight text-white leading-snug">Server | ServerCRON</h1>
+                    <h1 class="login-title text-xl sm:text-2xl font-bold tracking-tight text-white leading-snug">ServerCRON</h1>
                 </div>
             </div>
             <p class="login-muted mb-6 text-sm sm:text-base text-gray-400 leading-relaxed">Informe seu usuário de rede (sem domínio de e-mail, ex.: @example.com). Enviaremos um token de 6 dígitos ao seu e-mail corporativo.</p>
@@ -1805,14 +1805,14 @@
         })();
     </script>
 
-    <div id="app-shell" class="punk-bg-app relative z-10 hidden min-h-[100dvh]">
+    <div id="app-shell" class="server-app-shell relative z-10 hidden min-h-[100dvh]">
 
     <!-- Mobile menu bar -->
     <header class="mobile-bar-cron lg:hidden sticky top-0 z-50 flex items-center justify-between gap-2 px-3 py-2.5 border-b border-white/10 bg-[#0a0a0a]/95 safe-area-pt">
         <button type="button" id="sidebar-open-btn" class="touch-target flex items-center justify-center rounded-lg text-gray-300 hover:bg-white/10 hover:text-white -ml-1" aria-label="Abrir menu">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
-        <span class="text-sm sm:text-base font-bold tracking-widest text-white truncate flex-1 text-center">Server | ServerCRON</span>
+        <span class="text-sm sm:text-base font-bold tracking-widest text-white truncate flex-1 text-center">ServerCRON</span>
         <a href="https://github.com/abobicaduco/ServerCRON/issues" target="_blank" rel="noopener noreferrer" class="touch-target flex items-center justify-center rounded-lg text-sky-400 hover:bg-sky-500/15 px-1.5" aria-label="GitHub issues" title="Dúvidas">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </a>
@@ -1832,7 +1832,7 @@
                         <span class="text-black font-bold text-xs">SC</span>
                     </div>
                     <div class="min-w-0">
-                        <h1 class="text-sm sm:text-base font-bold tracking-widest text-white uppercase truncate">Server | ServerCRON</h1>
+                        <h1 class="text-sm sm:text-base font-bold tracking-widest text-white uppercase truncate">ServerCRON</h1>
                     </div>
                 </div>
                 <button type="button" id="sidebar-close-btn" class="lg:hidden touch-target shrink-0 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10" aria-label="Fechar menu">
@@ -2152,6 +2152,8 @@
                             <option value="">Todos Status</option>
                             <option value="success">Sucesso</option>
                             <option value="error">Erro</option>
+                            <option value="no_data">Sem dados (exit 2)</option>
+                            <option value="killed">Encerrado / kill</option>
                         </select>
                         <button onclick="loadHistory()" class="px-4 py-2 bg-yellow-500 text-black rounded-lg text-xs font-bold hover:bg-yellow-400 transition-all">Filtrar</button>
                     </div>

@@ -401,15 +401,20 @@
             const counts = { success: 0, error: 0 };
             const by_script = {};
             for (const e of entries) {
-                const st = e.status === 'no_data' ? 'success' : (e.status || '');
+                const st = (e.status || '').toLowerCase();
                 if (st === 'killed') continue;
-                if (Object.prototype.hasOwnProperty.call(counts, st)) counts[st]++;
                 const pn = e.python_name || '?';
                 if (!by_script[pn]) {
                     by_script[pn] = { success: 0, error: 0, total: 0 };
                 }
-                if (Object.prototype.hasOwnProperty.call(by_script[pn], st)) by_script[pn][st]++;
                 by_script[pn].total++;
+                if (st === 'success') {
+                    counts.success++;
+                    by_script[pn].success++;
+                } else if (st === 'error') {
+                    counts.error++;
+                    by_script[pn].error++;
+                }
             }
             const total = counts.success + counts.error;
             const pct = {
@@ -854,11 +859,12 @@
             }
 
             tb.innerHTML = d.history.map(h => {
-                const normalizedStatus = h.status === 'no_data' ? 'success' : h.status;
+                const displayStatus = (h.status || '').toLowerCase();
                 const statusColors = {
                     success: 'text-green-500 bg-green-500/10 border-green-500/20',
                     error: 'text-red-500 bg-red-500/10 border-red-500/20',
-                    killed: 'text-orange-500 bg-orange-500/10 border-orange-500/20'
+                    killed: 'text-orange-500 bg-orange-500/10 border-orange-500/20',
+                    no_data: 'text-sky-400 bg-sky-500/10 border-sky-500/20',
                 };
                 return `
                     <tr class="hover:bg-white/[0.02] transition-colors">
@@ -867,7 +873,7 @@
                             <div class="text-[9px] text-gray-500 uppercase">${h.area_name}</div>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="px-2 py-0.5 rounded text-[9px] font-black border ${statusColors[normalizedStatus] || 'text-gray-500 border-gray-500/20'} uppercase">${normalizedStatus}</span>
+                            <span class="px-2 py-0.5 rounded text-[9px] font-black border ${statusColors[displayStatus] || 'text-gray-500 border-gray-500/20'} uppercase">${displayStatus}</span>
                         </td>
                         <td class="px-6 py-4 text-gray-400 font-mono">${fmtDate(h.start_time)}</td>
                         <td class="px-6 py-4 text-gray-300 font-mono">${h.duration_label}</td>
@@ -1229,7 +1235,7 @@
             }
         }
 
-        // Expose handlers used by inline onclick attributes in Server.html
+        // Expose handlers used by inline onclick attributes in ServerCRON.html
         window.switchTab = switchTab;
         window.goToLiveForPython = goToLiveForPython;
         window.runScript = runScript;

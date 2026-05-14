@@ -1,24 +1,15 @@
 r"""
-Server — unified Python portal (`Server.html`, `server.css`, `server.js`, local sqlite).
-ServerCRON (NO-BQ) — automation stack without BigQuery; workbook-backed registry. Fork-friendly; configure branding via env.
+ServerCRON — portal Python unificado (`ServerCRON.html`, `ServerCRON.css`, `ServerCRON.js`, sqlite local).
+Stack Uploaders + Cron; branding e caminhos via env.
 
 Arranque:
-    python Server_NO_BQ/Server_NO_BQ.py
+    python ServerCRON.py
 
-Painel: `Server.html` (vistas Cron + Uploaders via `portal_view`). Assets: `server.css`, `server.js`.
-Regenerar o HTML/CSS/JS a partir dos ficheiros antigos (se existirem no repo):
-    python tools/emit_server_bundle.py
+Painel: `ServerCRON.html` (vistas Cron + Uploaders via `portal_view`). Assets: `ServerCRON.css`, `ServerCRON.js`.
 
 Modos: (1) predefinido — uma porta (SERVERCRON_DUO_PORTS=0): Uploaders em / e Cron em /cron/, mesma sessão; (2) opcional — SERVERCRON_DUO_PORTS=1 com SERVERCRON_UP_PORT / SERVERCRON_CRON_PORT.
-
-Registo local: ficheiro ``registro_automacoes.xlsx`` na **mesma pasta que o processo Server** (pasta deste ficheiro em modo script, ou pasta do ``.exe`` em modo frozen). Não coloque o registo em ``SERVERCRON_PANEL_DIR`` / assets — mantenha-o ao lado do executável.
-
-Worksheets e colunas esperadas:
-  - ``AUTOMACOES``: cabeçalhos (após normalização maiúsculas) incluindo pelo menos ``PYTHON_NAME``, ``AREA_NAME``, ``CRON``, ``IS_ACTIVE``, ``PRIORITY``, ``EMAILS_PRINCIPAL``, ``EMAILS_CC``, ``MOVE_FILE``; opcionais ``MOVIMENTACAO_FINANCEIRA`` (ou ``MOVIMENTACAO FINANCEIRA``), ``INTERACAO_CLIENTE`` (ou ``INTERACAO CLIENTE``), ``TEMPO_MANUAL_MINUTOS`` (ou ``TEMPO MANUAL MINUTOS``), ``OBJETIVO``, ``RESPONSAVEL``.
-  - ``USERS``: colunas ``users`` e ``level_access`` (nomes normalizados em minúsculas na leitura).
-
-Sem BigQuery.
-Dados locais: mesma pasta que este ficheiro (`server_cron.sqlite`; legado: nome antigo com prefixo ser+vidor_cron.sqlite).
+Dados do Cron (BigQuery + sqlite): mesma pasta que este ficheiro (`server_cron.sqlite`; legado: nome antigo com prefixo ser+vidor_cron.sqlite).
+Tabela de permissões no BQ: default ``… .ServerCRON``; override: env ``SERVERCRON_BQ_PERMISSIONS_TABLE`` (ex.: ``outro_nome`` ou ``proj.dataset.tabela``).
 """
 from __future__ import annotations
 
@@ -29,12 +20,7 @@ from pathlib import Path
 # Operator defaults when this process is the main script — must run before PANEL_HTML_DIR.
 if __name__ == "__main__":
     _op_root = Path(__file__).resolve().parent
-    if (_op_root / "Server.html").is_file():
-        _panel = _op_root
-    else:
-        _nested = _op_root / "Server_NO_BQ"
-        _panel = _nested if (_nested / "Server.html").is_file() else _op_root
-    os.environ.setdefault("SERVERCRON_PANEL_DIR", str(_panel))
+    os.environ.setdefault("SERVERCRON_PANEL_DIR", str(_op_root))
     os.environ.setdefault("SERVERCRON_DUO_PORTS", "0")
     os.environ.setdefault("SERVERCRON_UP_PORT", "5001")
     os.environ.setdefault("SERVERCRON_CRON_PORT", "5002")
@@ -51,6 +37,7 @@ import subprocess
 import threading
 import time
 import webbrowser
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from contextlib import suppress
 from datetime import datetime, timedelta
 from typing import Optional
@@ -63,7 +50,11 @@ try:
 except ImportError:
     HAS_PANDAS = False
 
-# NO_BQ build: cadastro e permissões vêm apenas de `registro_automacoes.xlsx` em REGISTRO_XLSX_DIR (pasta do Server; sem google-cloud-bigquery).
+try:
+    from google.cloud import bigquery
+    HAS_BIGQUERY = True
+except ImportError:
+    HAS_BIGQUERY = False
 
 try:
     import pythoncom
@@ -78,16 +69,6 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
-# Helper modules may sit next to this file or in the parent Server package.
-_pbq_script_dir = Path(__file__).resolve().parent
-for _pbq_anchor in (_pbq_script_dir, _pbq_script_dir.parent):
-    if _pbq_anchor.is_dir():
-        _pbq_sp = str(_pbq_anchor.resolve())
-        if _pbq_sp not in sys.path:
-            sys.path.insert(0, _pbq_sp)
-
-from punk_background_server import register_punk_background_routes
-
 # ═══════════════════════════════════════════════════════════════════════
 # CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════
@@ -96,9 +77,6 @@ if getattr(sys, "frozen", False):
     SCRIPT_DIR = Path(sys.executable).parent
 else:
     SCRIPT_DIR = Path(__file__).resolve().parent
-
-# Pasta do processo Server_NO_BQ: aqui fica sempre `registro_automacoes.xlsx` (nunca em SERVERCRON_PANEL_DIR / assets).
-REGISTRO_XLSX_DIR: Path = SCRIPT_DIR
 
 
 def _env_truthy(name: str) -> bool:
@@ -155,14 +133,66 @@ BASE_PATH: Path = DATA_ROOT / "automacoes"
 _mbx = os.environ.get("SERVERCRON_OUTLOOK_MONITOR_MAILBOX")
 OUTLOOK_MONITOR_MAILBOX_NAME: str = "Monitoracao Python" if _mbx is None else _mbx.strip()
 del _mbx
-# --- Registro local (xlsx): REGISTRO_XLSX_DIR == SCRIPT_DIR (pasta do .py ou do .exe em frozen) ---
-REGISTRO_AUTOMAOES_PATH: Path = REGISTRO_XLSX_DIR / "registro_automacoes.xlsx"
-SHEET_AUTOMACOES: str = "AUTOMACOES"
-SHEET_USERS: str = "USERS"
-# Identificadores mostrados na API admin (substituem project.dataset.table do BigQuery).
-TABLE_SERVER: str = "registro_automacoes.xlsx (USERS)"
-TABLE_REGISTRO_AUTOMAOES: str = "registro_automacoes.xlsx (AUTOMACOES)"
-# Below this age (seconds) the in-memory copy is "fresh". Beyond it, still serve stale up to STALE_MAX while a background thread refreshes the ficheiro xlsx.
+# BigQuery project.dataset for automation tables (ServerCRON permissions, registro_automacoes, …).
+#   ServerCRON: Uploaders (users, level_access, folder_access) + e-mail destinatarios
+#   registro_automacoes: catalog of jobs and crons (python_name, cron, is_active, …)
+#   Override: SERVERCRON_BQ_DATASET_PREFIX, or one-line file servercron_bq_dataset_prefix.txt next to this script.
+_BQ_P1: str = "your_gcp_project"
+_BQ_P2: str = "your_automation_dataset"
+_BQ_PREFIX_FILE: Path = SCRIPT_DIR / "servercron_bq_dataset_prefix.txt"
+
+
+def _read_bq_prefix_from_file(path: Path) -> str:
+    try:
+        if not path.is_file():
+            return ""
+        line = path.read_text(encoding="utf-8", errors="replace").splitlines()[:1]
+        if not line:
+            return ""
+        s = line[0].split("#", 1)[0].strip()
+        if not s or "your_gcp" in s or "your_dataset" in s:
+            return ""
+        return s
+    except Exception:
+        return ""
+
+
+def _resolve_bq_dataset_prefix() -> str:
+    envv = (os.environ.get("SERVERCRON_BQ_DATASET_PREFIX") or "").strip()
+    if envv:
+        return envv
+    from_file = _read_bq_prefix_from_file(_BQ_PREFIX_FILE)
+    if from_file:
+        return from_file
+    return f"{_BQ_P1}.{_BQ_P2}"
+
+
+BQ_DATASET_PREFIX: str = _resolve_bq_dataset_prefix()
+
+
+def _permissions_bq_table_id() -> str:
+    """BigQuery table id for users/permissions (Uploaders + Cron login).
+
+    Default: ``{dataset}.ServerCRON``. Override with env:
+
+    - ``SERVERCRON_BQ_PERMISSIONS_TABLE=outro_nome`` → suffix under ``BQ_DATASET_PREFIX``
+    - ``SERVERCRON_BQ_PERMISSIONS_TABLE=proj.dataset.tabela`` → full table id (two or more dots)
+
+    Deployments that still use the legacy table named ``server`` should set
+    ``SERVERCRON_BQ_PERMISSIONS_TABLE=server`` until data is migrated.
+    """
+    env = (os.environ.get("SERVERCRON_BQ_PERMISSIONS_TABLE") or "").strip()
+    if not env:
+        return f"{BQ_DATASET_PREFIX}.ServerCRON"
+    if env.count(".") >= 2:
+        return env
+    return f"{BQ_DATASET_PREFIX}.{env}"
+
+
+# BigQuery: permissões; nome default de tabela `ServerCRON` (override via env).
+TABLE_SERVER: str = _permissions_bq_table_id()
+TABLE_REGISTRO_AUTOMAOES: str = f"{BQ_DATASET_PREFIX}.registro_automacoes"
+# Below this age (seconds) the in-memory copy is "fresh". Beyond it, still serve stale up to STALE_MAX while a background thread refreshes BigQuery (keeps token/login responsive under load).
 _SERVERCRON_CACHE_TTL_SEC: float = float(
     (os.environ.get("SERVERCRON_BQ_PERMS_FRESH_TTL_SEC") or "120").strip() or 120
 )
@@ -170,8 +200,7 @@ _SERVERCRON_STALE_MAX_SEC: float = float(
     (os.environ.get("SERVERCRON_BQ_PERMS_STALE_MAX_SEC") or "86400").strip() or 86400
 )
 _servercron_cache: dict = {"df": None, "loaded_at": 0.0}
-_servercron_cache_lock = threading.Lock()
-_registro_xlsx_file_lock = threading.Lock()
+_servercron_bq_lock = threading.Lock()
 _servercron_bg_schedule_lock = threading.Lock()
 _servercron_last_bg_schedule: float = 0.0
 
@@ -191,12 +220,12 @@ def _unified_portal_with_cron() -> bool:
     if _env_truthy("SERVERCRON_DUO_PORTS"):
         return False
     return str(os.environ.get("SERVERCRON_UNIFIED_PORTAL", "")).lower() in ("1", "true", "yes")
-# Must differ from ServerCron.py (PORT 5002) when both run on the same host.
+# Uploaders default port; with SERVERCRON_DUO_PORTS=1 the Cron app uses SERVERCRON_CRON_PORT (default 5002).
 PORT: int = 5001
 DEBUG: bool = False
 MOCK_EMAIL: bool = False
 
-# Admins: worksheet USERS (level_access ADM / admin na linha do usuario).
+# Admins: apenas BigQuery tabela de permissões (level_access ADM / admin na linha do usuario).
 ADMIN_USERS: list[str] = []
 
 ANALYTICS_DB_PATH: Path = _prefer_new_home_file(
@@ -220,7 +249,7 @@ class LoggerMaster:
     """Unified console + file logger."""
 
     @staticmethod
-    def setup(name: str = "server") -> logging.Logger:
+    def setup(name: str = "ServerCRON") -> logging.Logger:
         log_dir = UPLOADERS_LOG_DIR / name
         log_dir.mkdir(parents=True, exist_ok=True)
         log_file = log_dir / f"{name}_{START_TIME.strftime('%H%M%S')}.log"
@@ -246,15 +275,13 @@ class LoggerMaster:
 
 
 logger = LoggerMaster.setup()
-if not REGISTRO_AUTOMAOES_PATH.is_file():
+if "your_gcp" in BQ_DATASET_PREFIX or "your_dataset" in BQ_DATASET_PREFIX:
     logger.warning(
-        "Registro local em falta: %s (crie o ficheiro com worksheets %s e %s).",
-        REGISTRO_AUTOMAOES_PATH.name,
-        SHEET_AUTOMACOES,
-        SHEET_USERS,
+        "BigQuery: BQ_DATASET_PREFIX is still a placeholder. Set SERVERCRON_BQ_DATASET_PREFIX "
+        "or add servercron_bq_dataset_prefix.txt next to this script (project.dataset format)."
     )
 else:
-    logger.info("Registro local: %s", REGISTRO_AUTOMAOES_PATH)
+    logger.info("BigQuery dataset prefix: %s", BQ_DATASET_PREFIX)
 
 # ═══════════════════════════════════════════════════════════════════════
 # ANALYTICS SERVICE
@@ -336,7 +363,7 @@ def _normalize_level_admin(level_val) -> bool:
 
 
 class PermissionService:
-    """Permissions and recipient list from worksheet USERS in registro_automacoes.xlsx (users, level_access, folder_access)."""
+    """Permissions and recipient list from BigQuery `servercron` only (users, level_access, folder_access)."""
 
     @staticmethod
     def get_todas_pastas_raiz() -> list[str]:
@@ -350,7 +377,7 @@ class PermissionService:
 
     @staticmethod
     def _get_servercron_dataframe() -> Optional[object]:
-        """Cached USERS sheet; stale-while-revalidate avoids blocking login on I/O de disco."""
+        """Cached SELECT * from servercron; stale-while-revalidate avoids blocking login on BQ."""
         return _servercron_resolve_dataframe()
 
     @staticmethod
@@ -384,7 +411,7 @@ class PermissionService:
         bq_df = PermissionService._get_servercron_dataframe()
         if PermissionService._bq_permissions_active(bq_df):
             if "users" not in bq_df.columns:
-                logger.error("Worksheet USERS sem coluna 'users'.")
+                logger.error("Tabela servercron sem coluna 'users'.")
                 return pastas
             if "level_access" in bq_df.columns and PermissionService._user_has_admin_level_in_df(
                 username_limpo, bq_df
@@ -404,7 +431,7 @@ class PermissionService:
             return list(dict.fromkeys(pastas))
 
         logger.warning(
-            "Permissoes: worksheet USERS indisponivel, vazia ou sem pastas para user=%s.",
+            "Permissoes: servercron (BigQuery) indisponivel, vazia ou sem pastas para user=%s.",
             username_limpo,
         )
         return pastas
@@ -419,7 +446,7 @@ class PermissionService:
 
     @staticmethod
     def get_all_recipients() -> str:
-        """All unique user e-mails from `users` in worksheet USERS, semicolon-separated."""
+        """All unique user e-mails from `users` in servercron (BigQuery), semicolon-separated."""
 
         def _to_emails(user_ids: list[str]) -> set[str]:
             return {
@@ -443,12 +470,21 @@ class PermissionService:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# REGISTRO XLSX — ADMIN (worksheet USERS; admin session only)
+# BIGQUERY — ADMIN (servercron DML; admin session only)
 # ═══════════════════════════════════════════════════════════════════════
 
 _FIELD_USERS_MAX = 4000
 _FIELD_FOLDER_MAX = 4000
 _USERS_SANITIZE = re.compile(r"^[a-z0-9\s.,;\-]+$", re.IGNORECASE)
+
+
+def _coerce_bq_str(val: object) -> str | None:
+    if val is None:
+        return None
+    if HAS_PANDAS and isinstance(val, float) and pd.isna(val):
+        return None
+    s = str(val).strip()
+    return s if s else None
 
 
 def _validate_servercron_users(users_raw: str) -> str:
@@ -480,36 +516,14 @@ def _validate_folder_access(raw: str | None) -> str | None:
     return t
 
 
-def _folder_access_is_blank(cell: object) -> bool:
-    if cell is None or (HAS_PANDAS and isinstance(cell, float) and pd.isna(cell)):
-        return True
-    return str(cell).strip() == ""
-
-
-def _write_users_worksheet_from_dataframe(df: object) -> None:
-    """Replace worksheet USERS with ``df``; other sheets in the workbook are preserved."""
-    from openpyxl import load_workbook
-
-    wb = load_workbook(REGISTRO_AUTOMAOES_PATH)
-    if SHEET_USERS in wb.sheetnames:
-        ws = wb[SHEET_USERS]
-        ws.delete_rows(1, ws.max_row)
-    else:
-        ws = wb.create_sheet(SHEET_USERS)
-    cols = [str(c) for c in df.columns]
-    for j, h in enumerate(cols, start=1):
-        ws.cell(row=1, column=j, value=h)
-    for i, row in enumerate(df.itertuples(index=False), start=2):
-        for j, val in enumerate(row, start=1):
-            if HAS_PANDAS and pd.isna(val):
-                ws.cell(row=i, column=j, value=None)
-            else:
-                ws.cell(row=i, column=j, value=val)
-    wb.save(REGISTRO_AUTOMAOES_PATH)
-
-
 class AccessAdminService:
-    """Read/write worksheet USERS inside registro_automacoes.xlsx — call only after admin check."""
+    """DML on servercron (BigQuery) — call only after admin check."""
+
+    @staticmethod
+    def _client():
+        if not HAS_BIGQUERY:
+            raise RuntimeError("google-cloud-bigquery não disponível no Server.")
+        return bigquery.Client()
 
     @staticmethod
     def fetch_all_rows() -> list[dict]:
@@ -538,48 +552,38 @@ class AccessAdminService:
         return rows
 
     @staticmethod
-    def _load_users_df_for_mutation() -> object:
-        if not HAS_PANDAS:
-            raise RuntimeError("pandas não disponível no Server.")
-        if not REGISTRO_AUTOMAOES_PATH.is_file():
-            raise FileNotFoundError(f"Ficheiro em falta: {REGISTRO_AUTOMAOES_PATH}")
-        try:
-            df = pd.read_excel(
-                REGISTRO_AUTOMAOES_PATH,
-                sheet_name=SHEET_USERS,
-                engine="openpyxl",
-            )
-        except ValueError as exc:
-            raise RuntimeError(
-                f"Worksheet '{SHEET_USERS}' em falta em {REGISTRO_AUTOMAOES_PATH.name}."
-            ) from exc
-        df = df.dropna(how="all")
-        df.columns = [str(c).strip().lower() for c in df.columns]
-        if df.shape[1] == 0:
-            return pd.DataFrame(columns=["users", "level_access", "folder_access"])
-        for col in ("users", "level_access", "folder_access"):
-            if col not in df.columns:
-                df[col] = None
-        return df
-
-    @staticmethod
     def insert_row(
         users: str, level_access: str, folder_access: str | None
     ) -> tuple[list[dict], str | None, int | None]:
         u = _validate_servercron_users(users)
         lv = _validate_level_access(level_access)
         fa = _validate_folder_access(folder_access)
-        with _registro_xlsx_file_lock:
-            df = AccessAdminService._load_users_df_for_mutation()
-            new_row = {c: None for c in df.columns}
-            new_row["users"] = u
-            new_row["level_access"] = lv
-            new_row["folder_access"] = fa
-            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-            _write_users_worksheet_from_dataframe(df)
-        logger.info("XLSX admin INSERT worksheet %s concluído.", SHEET_USERS)
+        client = AccessAdminService._client()
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("users", "STRING", u),
+                bigquery.ScalarQueryParameter("level_access", "STRING", lv),
+                bigquery.ScalarQueryParameter("folder_access", "STRING", fa),
+            ]
+        )
+        sql = (
+            f"INSERT INTO `{TABLE_SERVER}` (users, level_access, folder_access) "
+            "VALUES (@users, @level_access, @folder_access)"
+        )
+        job = client.query(sql, job_config=job_config)
+        try:
+            job.result(timeout=600)
+        except FuturesTimeoutError as exc:
+            raise RuntimeError("Tempo excedido ao aguardar conclusão do job no BigQuery (INSERT).") from exc
+        jid = str(getattr(job, "job_id", None) or "") or None
+        dml_aff: int | None = None
+        n_dml = getattr(job, "num_dml_affected_rows", None)
+        if n_dml is not None:
+            with suppress(TypeError, ValueError):
+                dml_aff = int(n_dml)
+        logger.info("BQ admin INSERT servercron concluído (job_id=%s).", getattr(job, "job_id", "?"))
         rows = AccessAdminService.fetch_all_rows()
-        return rows, None, 1
+        return rows, jid, dml_aff
 
     @staticmethod
     def delete_row(
@@ -595,29 +599,59 @@ class AccessAdminService:
         else:
             s = str(raw_fa).strip()
             fa = None if s == "" else s
-        with _registro_xlsx_file_lock:
-            df = AccessAdminService._load_users_df_for_mutation()
-            before = len(df)
-
-            def _match_row(r) -> bool:
-                if str(r.get("users", "")).strip() != u:
-                    return False
-                if str(r.get("level_access", "")).strip() != lv:
-                    return False
-                cell_fa = r.get("folder_access")
-                if fa is None:
-                    return _folder_access_is_blank(cell_fa)
-                return str(cell_fa).strip() == fa
-
-            mask = df.apply(_match_row, axis=1)
-            removed = int(mask.sum())
-            if removed < 1:
-                raise ValueError("Nenhuma linha correspondente para remover.")
-            df = df.loc[~mask].reset_index(drop=True)
-            _write_users_worksheet_from_dataframe(df)
-        logger.info("XLSX admin DELETE worksheet %s (%s linha(s)).", SHEET_USERS, removed)
+        client = AccessAdminService._client()
+        if fa is None:
+            sql = (
+                f"DELETE FROM `{TABLE_SERVER}` WHERE users = @users AND level_access = @lv "
+                "AND (folder_access IS NULL OR TRIM(COALESCE(folder_access, '')) = '')"
+            )
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("users", "STRING", u),
+                    bigquery.ScalarQueryParameter("lv", "STRING", lv),
+                ]
+            )
+        else:
+            sql = (
+                f"DELETE FROM `{TABLE_SERVER}` WHERE users = @users "
+                "AND level_access = @lv AND folder_access = @fa"
+            )
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("users", "STRING", u),
+                    bigquery.ScalarQueryParameter("lv", "STRING", lv),
+                    bigquery.ScalarQueryParameter("fa", "STRING", fa),
+                ]
+            )
+        job = client.query(sql, job_config=job_config)
+        try:
+            job.result(timeout=600)
+        except FuturesTimeoutError as exc:
+            raise RuntimeError("Tempo excedido ao aguardar conclusão do job no BigQuery (DELETE).") from exc
+        jid = str(getattr(job, "job_id", None) or "") or None
+        dml_aff: int | None = None
+        n_dml = getattr(job, "num_dml_affected_rows", None)
+        if n_dml is not None:
+            with suppress(TypeError, ValueError):
+                dml_aff = int(n_dml)
+        logger.info("BQ admin DELETE servercron concluído (job_id=%s).", getattr(job, "job_id", "?"))
         rows = AccessAdminService.fetch_all_rows()
-        return rows, None, removed
+        return rows, jid, dml_aff
+
+    @staticmethod
+    def _dml_affected_or_raise(job) -> int | None:
+        job.result(timeout=600)
+        n = getattr(job, "num_dml_affected_rows", None)
+        if n is not None:
+            return int(n)
+        props = getattr(job, "_properties", None) or {}
+        try:
+            raw = (props.get("statistics") or {}).get("query", {}).get("numDmlAffectedRows")
+            if raw is not None:
+                return int(raw)
+        except (TypeError, ValueError):
+            pass
+        return None
 
     @staticmethod
     def update_row(
@@ -641,30 +675,50 @@ class AccessAdminService:
         n_u = _validate_servercron_users(new_users)
         n_lv = _validate_level_access(new_level_access)
         n_fa = _validate_folder_access(new_folder_access)
-        with _registro_xlsx_file_lock:
-            df = AccessAdminService._load_users_df_for_mutation()
-
-            def _old_match(r) -> bool:
-                if str(r.get("users", "")).strip() != o_u:
-                    return False
-                if str(r.get("level_access", "")).strip() != o_lv:
-                    return False
-                cell_fa = r.get("folder_access")
-                if o_fa is None:
-                    return _folder_access_is_blank(cell_fa)
-                return str(cell_fa).strip() == o_fa
-
-            mask = df.apply(_old_match, axis=1)
-            n_hit = int(mask.sum())
-            if n_hit < 1:
-                raise ValueError("Nenhuma linha foi atualizada. Reconsulte a tabela (a linha antiga pode já ter mudado).")
-            df.loc[mask, "users"] = n_u
-            df.loc[mask, "level_access"] = n_lv
-            df.loc[mask, "folder_access"] = n_fa
-            _write_users_worksheet_from_dataframe(df)
-        logger.info("XLSX admin UPDATE worksheet %s (%s linha(s)).", SHEET_USERS, n_hit)
+        client = AccessAdminService._client()
+        if o_fa is None:
+            sql = (
+                f"UPDATE `{TABLE_SERVER}` "
+                "SET users = @n_users, level_access = @n_lv, folder_access = @n_fa "
+                "WHERE users = @o_users AND level_access = @o_lv AND "
+                "(folder_access IS NULL OR TRIM(COALESCE(folder_access, '')) = '')"
+            )
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("n_users", "STRING", n_u),
+                    bigquery.ScalarQueryParameter("n_lv", "STRING", n_lv),
+                    bigquery.ScalarQueryParameter("n_fa", "STRING", n_fa),
+                    bigquery.ScalarQueryParameter("o_users", "STRING", o_u),
+                    bigquery.ScalarQueryParameter("o_lv", "STRING", o_lv),
+                ]
+            )
+        else:
+            sql = (
+                f"UPDATE `{TABLE_SERVER}` "
+                "SET users = @n_users, level_access = @n_lv, folder_access = @n_fa "
+                "WHERE users = @o_users AND level_access = @o_lv AND folder_access = @o_fa"
+            )
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("n_users", "STRING", n_u),
+                    bigquery.ScalarQueryParameter("n_lv", "STRING", n_lv),
+                    bigquery.ScalarQueryParameter("n_fa", "STRING", n_fa),
+                    bigquery.ScalarQueryParameter("o_users", "STRING", o_u),
+                    bigquery.ScalarQueryParameter("o_lv", "STRING", o_lv),
+                    bigquery.ScalarQueryParameter("o_fa", "STRING", o_fa),
+                ]
+            )
+        job = client.query(sql, job_config=job_config)
+        try:
+            n_rows = AccessAdminService._dml_affected_or_raise(job)
+        except FuturesTimeoutError as exc:
+            raise RuntimeError("Tempo excedido ao aguardar conclusão do job no BigQuery (UPDATE).") from exc
+        if n_rows is not None and n_rows < 1:
+            raise ValueError("Nenhuma linha foi atualizada. Reconsulte a tabela (a linha antiga pode já ter mudado).")
+        jid = str(getattr(job, "job_id", None) or "") or None
+        logger.info("BQ admin UPDATE servercron concluído (job_id=%s, rows=%s).", getattr(job, "job_id", "?"), n_rows)
         rows = AccessAdminService.fetch_all_rows()
-        return rows, None, n_hit
+        return rows, jid, n_rows
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -673,6 +727,8 @@ class AccessAdminService:
 
 class FileService:
     """Maps directory trees and locates automation scripts."""
+
+    @staticmethod
     def mapear_diretorios(pastas_permitidas: list[str]) -> tuple[dict, set]:
         grouped: dict[str, dict[str, str]] = {}
         valid_paths: set[str] = set()
@@ -1274,15 +1330,18 @@ app.secret_key = SECRET_KEY
 # Distinct from _app (ServerCron) so both portals can stay logged in on the same host/port (unified mode).
 app.config["SESSION_COOKIE_NAME"] = "server_uploaders_session"
 UPLOADERS_TEMPLATE: str = (
-    "Server.html"
-    if _resolve_panel_file("Server.html") is not None
+    "ServerCRON.html"
+    if _resolve_panel_file("ServerCRON.html") is not None
     else (
-        "ServerUploaders.html"
-        if _resolve_panel_file("ServerUploaders.html") is not None
-        else "ServerUploaders.html"
+        "Server.html"
+        if _resolve_panel_file("Server.html") is not None
+        else (
+            "ServerUploaders.html"
+            if _resolve_panel_file("ServerUploaders.html") is not None
+            else "ServerCRON.html"
+        )
     )
 )
-register_punk_background_routes(app, PANEL_HTML_DIR)
 
 
 def _uploaders_cron_embed() -> bool:
@@ -1334,8 +1393,9 @@ def _serve_uploaders_logo() -> Response:
 
 @app.route("/assets/logo.png")
 def logo_brand():
-    """PNG logo for the Uploaders portal (`Server.html`)."""
+    """Organization logo served from the shared modules folder (PNG)."""
     return _serve_uploaders_logo()
+
 
 auth_tokens: dict[str, dict] = {}
 # 6-digit e-mail OTP: window to type the code (separate from logged-in session length, 24h).
@@ -1441,7 +1501,7 @@ def index():
             diretorios={},
             user_prefs={"recent": [], "frequent": []},
             csrf_token="",
-            has_bigquery=(HAS_PANDAS and REGISTRO_AUTOMAOES_PATH.is_file()),
+            has_bigquery=HAS_BIGQUERY,
             show_cron_link=_unified_portal_with_cron(),
             cron_embed=cron_embed,
         )
@@ -1471,7 +1531,7 @@ def index():
         user_prefs=user_prefs,
         path_to_name=path_to_name,
         csrf_token=_ensure_csrf_token(),
-        has_bigquery=(HAS_PANDAS and REGISTRO_AUTOMAOES_PATH.is_file()),
+        has_bigquery=HAS_BIGQUERY,
         show_cron_link=_unified_portal_with_cron(),
         cron_embed=cron_embed,
         after_login="",
@@ -1486,20 +1546,11 @@ def api_admin_get_servercron():
         return jsonify({"ok": False, "message": "Acesso reservado a administradores."}), 403
     if not _rate_limit_ok(f"admbq:GET:{_get_client_ip()}", 45):
         return jsonify({"ok": False, "message": "Muitas requisições. Aguarde 1 minuto."}), 429
-    if not HAS_PANDAS:
+    if not (HAS_BIGQUERY and HAS_PANDAS):
         return jsonify(
             {
                 "ok": False,
-                "message": "pandas indisponível no Server.",
-                "rows": [],
-                "table_id": TABLE_SERVER,
-            }
-        )
-    if not REGISTRO_AUTOMAOES_PATH.is_file():
-        return jsonify(
-            {
-                "ok": False,
-                "message": f"Ficheiro em falta: {REGISTRO_AUTOMAOES_PATH.name}",
+                "message": "Dependências (BigQuery / pandas) indisponíveis no Server.",
                 "rows": [],
                 "table_id": TABLE_SERVER,
             }
@@ -1530,12 +1581,8 @@ def api_admin_add_servercron():
         return jsonify({"ok": False, "message": "Token CSRF inválido. Recarregue a página."}), 403
     if not _rate_limit_ok(f"admbq:ADD:{_get_client_ip()}", 25):
         return jsonify({"ok": False, "message": "Limite de alterações. Aguarde 1 minuto."}), 429
-    if not HAS_PANDAS:
-        return jsonify({"ok": False, "message": "pandas indisponível neste Server."}), 503
-    if not REGISTRO_AUTOMAOES_PATH.is_file():
-        return jsonify(
-            {"ok": False, "message": f"Ficheiro em falta: {REGISTRO_AUTOMAOES_PATH.name}"}
-        ), 503
+    if not (HAS_BIGQUERY and HAS_PANDAS):
+        return jsonify({"ok": False, "message": "BigQuery indisponível neste Server."}), 503
     p = request.get_json(silent=True) or {}
     try:
         rows, bq_jid, bq_dml = AccessAdminService.insert_row(
@@ -1543,12 +1590,12 @@ def api_admin_add_servercron():
             p.get("level_access", ""),
             p.get("folder_access") or p.get("folder_acess") or None,
         )
-        logger.info("Admin %s inseriu linha na worksheet %s (xlsx).", actor, SHEET_USERS)
+        logger.info("Admin %s inseriu linha em servercron (BigQuery concluído).", actor)
         return jsonify(
             {
                 "ok": True,
                 "rows": rows,
-                "message": "Linha inserida e planilha regravada (USERS).",
+                "message": "Linha inserida e tabela reconsultada no BigQuery (job concluído).",
                 "bq_job_id": bq_jid,
                 "bq_dml_affected_rows": bq_dml,
             }
@@ -1571,12 +1618,8 @@ def api_admin_delete_servercron():
         return jsonify({"ok": False, "message": "Token CSRF inválido. Recarregue a página."}), 403
     if not _rate_limit_ok(f"admbq:DEL:{_get_client_ip()}", 25):
         return jsonify({"ok": False, "message": "Limite de alterações. Aguarde 1 minuto."}), 429
-    if not HAS_PANDAS:
-        return jsonify({"ok": False, "message": "pandas indisponível neste Server."}), 503
-    if not REGISTRO_AUTOMAOES_PATH.is_file():
-        return jsonify(
-            {"ok": False, "message": f"Ficheiro em falta: {REGISTRO_AUTOMAOES_PATH.name}"}
-        ), 503
+    if not (HAS_BIGQUERY and HAS_PANDAS):
+        return jsonify({"ok": False, "message": "BigQuery indisponível neste Server."}), 503
     p = request.get_json(silent=True) or {}
     try:
         rows, bq_jid, bq_dml = AccessAdminService.delete_row(
@@ -1584,12 +1627,12 @@ def api_admin_delete_servercron():
             p.get("level_access", ""),
             p.get("folder_access"),
         )
-        logger.info("Admin %s removeu linha na worksheet %s (xlsx).", actor, SHEET_USERS)
+        logger.info("Admin %s removeu linha em servercron (BigQuery concluído).", actor)
         return jsonify(
             {
                 "ok": True,
                 "rows": rows,
-                "message": "Linha removida e planilha regravada (USERS).",
+                "message": "Linha removida e tabela reconsultada no BigQuery (job concluído).",
                 "bq_job_id": bq_jid,
                 "bq_dml_affected_rows": bq_dml,
             }
@@ -1612,12 +1655,8 @@ def api_admin_update_servercron():
         return jsonify({"ok": False, "message": "Token CSRF inválido. Recarregue a página."}), 403
     if not _rate_limit_ok(f"admbq:UPD:{_get_client_ip()}", 25):
         return jsonify({"ok": False, "message": "Limite de alterações. Aguarde 1 minuto."}), 429
-    if not HAS_PANDAS:
-        return jsonify({"ok": False, "message": "pandas indisponível neste Server."}), 503
-    if not REGISTRO_AUTOMAOES_PATH.is_file():
-        return jsonify(
-            {"ok": False, "message": f"Ficheiro em falta: {REGISTRO_AUTOMAOES_PATH.name}"}
-        ), 503
+    if not (HAS_BIGQUERY and HAS_PANDAS):
+        return jsonify({"ok": False, "message": "BigQuery indisponível neste Server."}), 503
     p = request.get_json(silent=True) or {}
 
     def _none_if_empty(x: object) -> str | None:
@@ -1639,12 +1678,12 @@ def api_admin_update_servercron():
             p.get("level_access", ""),
             n_fa,
         )
-        logger.info("Admin %s alterou linha na worksheet %s (xlsx).", actor, SHEET_USERS)
+        logger.info("Admin %s alterou linha em servercron (UPDATE BigQuery concluído).", actor)
         return jsonify(
             {
                 "ok": True,
                 "rows": rows,
-                "message": "Linha atualizada e planilha regravada (USERS).",
+                "message": "Linha atualizada e tabela reconsultada no BigQuery (UPDATE concluído).",
                 "bq_job_id": bq_jid,
                 "bq_dml_affected_rows": bq_dml,
             }
@@ -1736,7 +1775,7 @@ def request_token():
         diretorios={},
         user_prefs={"recent": [], "frequent": []},
         csrf_token="",
-        has_bigquery=(HAS_PANDAS and REGISTRO_AUTOMAOES_PATH.is_file()),
+        has_bigquery=HAS_BIGQUERY,
         show_cron_link=_unified_portal_with_cron(),
         cron_embed=_uploaders_cron_embed(),
         after_login=_al,
@@ -2081,7 +2120,7 @@ def _build_shared_invite_html(uploaders_url: str, cron_url: str) -> str:
 
 
 def _send_startup_access_invite(uploaders_url: str, cron_url: str) -> None:
-    """Send one Outlook invite e-mail to all users from worksheet USERS (xlsx)."""
+    """Send one Outlook invite e-mail to all users from servercron."""
     if not HAS_OUTLOOK:
         logger.warning("[INVITE] Outlook COM indisponível. Convite automático não enviado.")
         return
@@ -2095,7 +2134,7 @@ def _send_startup_access_invite(uploaders_url: str, cron_url: str) -> None:
 
     recipients = PermissionService.get_all_recipients().strip()
     if not recipients:
-        logger.warning("[INVITE] Nenhum destinatário encontrado na worksheet USERS. Convite não enviado.")
+        logger.warning("[INVITE] Nenhum destinatário encontrado na tabela %s. Convite não enviado.", TABLE_SERVER)
         return
 
     html_body = _build_shared_invite_html(uploaders_url=uploaders_url, cron_url=cron_url)
@@ -2156,7 +2195,7 @@ else:
     os.environ["SERVERCRON_UNIFIED_PORTAL"] = "1"
 
 # ======================================================================
-# SERVERCRON (embedded; source: ServerCron/ServerCron.py, MAIN cut)
+# SERVERCRON (embedded Cron scheduler + API; same repo as Uploaders Flask app above)
 # ======================================================================
 
 # ==============================================================
@@ -2198,6 +2237,8 @@ def bootstrap():
         "pytz": "pytz==2024.1",
         "croniter": "croniter==2.0.5",
         "waitress": "waitress==3.0.0",
+        "google.cloud.bigquery": "google-cloud-bigquery==3.20.1",
+        "db_dtypes": "db-dtypes==1.2.0",
         "sqlalchemy": "sqlalchemy==2.0.30"
     }
     
@@ -2243,13 +2284,14 @@ except ImportError:
     HAS_OUTLOOK = False
 
 # Importações de Confiabilidade (Escala)
+from google.cloud import bigquery
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 # ==============================================================
 # CAMINHOS — ajuste apenas aqui
-# Dados do Cron: mesma pasta do Server.py
+# Dados do Cron: mesma pasta do ServerCRON.py
 # Um único ficheiro SQLite: agendador (APScheduler) + tabela execution_runs.
 # Ficheiros .sqlite-wal / .sqlite-shm = modo WAL do SQLite (não são “duas bases”, são o mesmo ficheiro).
 # ==============================================================
@@ -2264,16 +2306,20 @@ _db_path = PATH_CRON_SQLITE
 PATH_AUTOMACOES = DATA_ROOT / "automacoes"
 
 # HTML (same folder as this package; optional: SERVERCRON_PANEL_DIR)
-PATH_DASHBOARD_HTML = CRON_PATH_SCRIPT_DIR / "Server.html"
+PATH_DASHBOARD_HTML = CRON_PATH_SCRIPT_DIR / "ServerCRON.html"
 if not PATH_DASHBOARD_HTML.is_file():
-    _alt_dash = CRON_PATH_SCRIPT_DIR / "ServerCron.html"
+    _alt_dash = CRON_PATH_SCRIPT_DIR / "Server.html"
     if _alt_dash.is_file():
         PATH_DASHBOARD_HTML = _alt_dash
+    else:
+        _alt_dash2 = CRON_PATH_SCRIPT_DIR / "ServerCron.html"
+        if _alt_dash2.is_file():
+            PATH_DASHBOARD_HTML = _alt_dash2
 _panel_dir_raw = (os.environ.get("SERVERCRON_PANEL_DIR") or "").strip()
 if _panel_dir_raw:
     _p_panel = Path(_panel_dir_raw)
     if _p_panel.is_dir():
-        for _dash_name in ("Server.html", "ServerCron.html"):
+        for _dash_name in ("ServerCRON.html", "Server.html", "ServerCron.html"):
             _dash_try = _p_panel / _dash_name
             if _dash_try.is_file():
                 PATH_DASHBOARD_HTML = _dash_try
@@ -2345,7 +2391,7 @@ _SERVER_VERSION    = "2.3.6"
 # --- Dashboard auth (token via e-mail, same pattern as ServerUploaders) ---
 CRON_SECRET_KEY: str = "chave_super_secreta_sessao_server_cron_monitoracao_x9k2"
 MOCK_EMAIL: bool = False
-# Login Cron e papel admin/viewer: worksheet USERS (users com virgulas; level_access ADM|user|...).
+# Login Cron e papel admin/viewer: somente `servercron` (users com virgulas; level_access ADM|user|...).
 ALLOWED_LOGIN_USERS: list[str] = []
 
 _ACCESS_REGISTRY_TTL_SECONDS = 120
@@ -2355,13 +2401,13 @@ _access_registry_lock = threading.Lock()
 _cron_auth_tokens: dict[str, dict] = {}
 _cron_token_request_at: dict[str, float] = {}
 
-# -- History (persistent SQLite, mesma pasta do Server.py) --------------------------------
+# -- History (persistent SQLite, mesma pasta do ServerCRON.py) --------------------------------
 _MAX_HISTORY = 1000
 _history_lock = threading.Lock()
 def _normalize_history_entry(entry: dict) -> dict:
-    """Align status with exit_code. Only success/error are exposed in history."""
+    """Exit code 2 = NO_DATA (sem dados), distinto de sucesso (0). Corrige linhas antigas gravadas como success."""
     if entry.get("exit_code") == 2:
-        entry["status"] = "success"
+        entry["status"] = "no_data"
     return entry
 
 
@@ -2509,8 +2555,8 @@ def _normalize_access_role(level_access: str) -> str:
 def _fetch_servercron_access_bq() -> dict[str, str]:
     """Cada login em `users` (celula pode listar varios separados por virgula) -> admin|viewer.
 
-    Usa o mesmo cache em memória que PermissionService (worksheet USERS no xlsx), evitando
-    uma segunda leitura ao ficheiro só para o mapa users->role no login.
+    Usa o mesmo cache em memória que PermissionService (`SELECT *` em servercron), evitando
+    uma segunda ida ao BigQuery só para o mapa users->role no login.
     """
     out: dict[str, str] = {}
     try:
@@ -2518,12 +2564,12 @@ def _fetch_servercron_access_bq() -> dict[str, str]:
         if df is None:
             return out
         if df.empty:
-            logger_cron.info("[AUTH] worksheet USERS: vazia (nenhuma linha).")
+            logger_cron.info("[AUTH] servercron: tabela vazia (nenhuma linha).")
             return out
         df.columns = [str(c).strip().lower() for c in df.columns]
         if "users" not in df.columns or "level_access" not in df.columns:
             logger_cron.warning(
-                "[AUTH] worksheet USERS: colunas inesperadas (esperado users, level_access). Encontrado: %s",
+                "[AUTH] servercron: colunas inesperadas (esperado users, level_access). Encontrado: %s",
                 list(df.columns),
             )
             return out
@@ -2537,27 +2583,28 @@ def _fetch_servercron_access_bq() -> dict[str, str]:
                     out[token] = "admin"
                 else:
                     out[token] = role
-        logger_cron.info("[AUTH] worksheet USERS: %d usuario(s) com nivel de acesso (cache).", len(out))
+        logger_cron.info("[AUTH] servercron: %d usuario(s) com nivel de acesso (cache BQ).", len(out))
     except Exception:
-        logger_cron.exception("[AUTH] Falha ao montar mapa de acesso a partir da worksheet USERS.")
+        logger_cron.exception("[AUTH] Falha ao montar mapa de acesso a partir de servercron.")
     return out
 
 
 def _build_access_registry() -> dict[str, str]:
-    """Worksheet USERS no xlsx (mesma logica de split de `users` que o Uploaders)."""
+    """Apenas BigQuery `servercron` (mesma logica de split de `users` que o Uploaders)."""
     bq = _fetch_servercron_access_bq()
     merged: dict[str, str] = dict(bq)
     if not bq:
         logger_cron.warning(
-            "[AUTH] Nenhum usuario na worksheet USERS ou ficheiro indisponivel: %s.",
-            REGISTRO_AUTOMAOES_PATH,
+            "[AUTH] Nenhum usuario em servercron (BigQuery) ou tabela indisponivel. "
+            "Verifique credenciais, projeto e tabela %s.",
+            TABLE_SERVER,
         )
     for u in ALLOWED_LOGIN_USERS:
         ul = u.strip().lower()
         if ul and ul not in merged:
             merged[ul] = "viewer"
     logger_cron.info(
-        "[AUTH] Registro de acesso | xlsx=%d usuario(s) | total_apos_lista_extra=%d",
+        "[AUTH] Registro de acesso | bq=%d usuario(s) | total_apos_lista_extra=%d",
         len(bq),
         len(merged),
     )
@@ -2583,43 +2630,29 @@ def _invalidate_access_registry_cache() -> None:
 
 
 def _servercron_run_bq_fetch_once() -> Optional[object]:
-    """Read worksheet USERS from registro_automacoes.xlsx; None on failure. Does not update cache."""
-    if not HAS_PANDAS:
-        return None
+    """Run BigQuery SELECT * for servercron; None on failure. Does not update cache."""
     try:
-        with _registro_xlsx_file_lock:
-            if not REGISTRO_AUTOMAOES_PATH.is_file():
-                return None
-            try:
-                df = pd.read_excel(
-                    REGISTRO_AUTOMAOES_PATH,
-                    sheet_name=SHEET_USERS,
-                    engine="openpyxl",
-                )
-            except ValueError:
-                logger_cron.warning(
-                    "Worksheet '%s' em falta em %s.",
-                    SHEET_USERS,
-                    REGISTRO_AUTOMAOES_PATH.name,
-                )
-                return None
-        if df is None:
-            return None
+        client = bigquery.Client()
+        job = client.query(f"SELECT * FROM `{TABLE_SERVER}`")
+        try:
+            job.result(timeout=600)
+        except FuturesTimeoutError as exc:
+            raise RuntimeError("BigQuery job timed out after 600 seconds.") from exc
+        df = job.to_dataframe(create_bqstorage_client=False)
         if not df.empty:
-            df = df.dropna(how="all")
             df.columns = [str(c).strip().lower() for c in df.columns]
         if "folder_access" not in df.columns:
             df["folder_access"] = None
         return df
     except Exception:
-        logger.exception("Erro ao carregar permissões do xlsx (%s).", TABLE_SERVER)
+        logger.exception("Erro ao carregar permissões do BigQuery (tabela %s).", TABLE_SERVER)
         return None
 
 
 def _servercron_schedule_background_refresh() -> None:
-    """Refresh worksheet USERS in a daemon thread (stale-while-revalidate)."""
+    """Refresh BigQuery in a daemon thread so HTTP handlers return immediately (stale-while-revalidate)."""
     global _servercron_last_bg_schedule
-    if not HAS_PANDAS:
+    if not HAS_PANDAS or not HAS_BIGQUERY:
         return
     now = time.time()
     with _servercron_bg_schedule_lock:
@@ -2628,7 +2661,7 @@ def _servercron_schedule_background_refresh() -> None:
         _servercron_last_bg_schedule = now
 
     def _worker() -> None:
-        with _servercron_cache_lock:
+        with _servercron_bq_lock:
             tnow = time.time()
             df = _servercron_cache["df"]
             loaded = float(_servercron_cache["loaded_at"] or 0.0)
@@ -2641,12 +2674,12 @@ def _servercron_schedule_background_refresh() -> None:
             _servercron_cache["loaded_at"] = time.time()
         _invalidate_access_registry_cache()
 
-    threading.Thread(target=_worker, daemon=True, name="servercron-xlsx-refresh").start()
+    threading.Thread(target=_worker, daemon=True, name="servercron-bq-refresh").start()
 
 
 def _servercron_resolve_dataframe() -> Optional[object]:
-    """Return cached permissions df; block on disk read only when there is no usable stale copy."""
-    if not HAS_PANDAS:
+    """Return cached permissions df; block on BigQuery only when there is no usable stale copy."""
+    if not HAS_PANDAS or not HAS_BIGQUERY:
         return None
 
     def _age_seconds() -> tuple[Optional[object], float]:
@@ -2662,7 +2695,7 @@ def _servercron_resolve_dataframe() -> Optional[object]:
         _servercron_schedule_background_refresh()
         return df
 
-    with _servercron_cache_lock:
+    with _servercron_bq_lock:
         df, age = _age_seconds()
         if df is not None and age < _SERVERCRON_CACHE_TTL_SEC:
             return df
@@ -2738,8 +2771,10 @@ def _record_execution(
 ) -> None:
     """Append a finished execution to in-memory history."""
     elapsed = round(end_ts - start_ts, 1)
-    if exit_code == 0 or exit_code == 2:
+    if exit_code == 0:
         status = "success"
+    elif exit_code == 2:
+        status = "no_data"
     elif exit_code is None:
         status = "killed"
     else:
@@ -2821,7 +2856,7 @@ def buscar_arquivos_locais() -> dict[str, Path]:
     return dict(found)
 
 # ==============================================================
-# XLSX REGISTRY READER (com cache em memoria - TTL 600s)
+# BIGQUERY REGISTRY READER (com cache em memoria - TTL 600s)
 # ==============================================================
 
 _BQ_CACHE_TTL_SECONDS = 600  # 10 minutos
@@ -2829,43 +2864,26 @@ _bq_cache: dict = {"records": [], "ts": 0.0}
 _bq_cache_lock = threading.Lock()
 
 def _ler_registro_bq(force: bool = False) -> list[dict]:
-    """Lê o cadastro de robôs da worksheet AUTOMACOES em registro_automacoes.xlsx.
-    Usa cache em memória com TTL de 10 min. Passe force=True para ignorar o cache (reload manual).
+    """Lê o cadastro de robôs diretamente da tabela no BigQuery.
+    Usa cache em memória com TTL de 10 min para evitar abuso de queries.
+    Passe force=True para ignorar o cache (usado no reload manual).
     """
     with _bq_cache_lock:
         age = time.time() - _bq_cache["ts"]
         if not force and _bq_cache["records"] and age < _BQ_CACHE_TTL_SECONDS:
             return _bq_cache["records"]
 
-    logger_cron.info(
-        "[XLSX] Consultando worksheet %s em %s...",
-        SHEET_AUTOMACOES,
-        REGISTRO_AUTOMAOES_PATH.name,
-    )
-    if not HAS_PANDAS:
-        with _bq_cache_lock:
-            return _bq_cache["records"]
+    logger_cron.info("[BIGQUERY] Consultando tabela registro_automacoes...")
     try:
-        with _registro_xlsx_file_lock:
-            if not REGISTRO_AUTOMAOES_PATH.is_file():
-                logger_cron.warning("[XLSX] Ficheiro em falta: %s", REGISTRO_AUTOMAOES_PATH)
-                with _bq_cache_lock:
-                    return _bq_cache["records"]
-            try:
-                df = pd.read_excel(
-                    REGISTRO_AUTOMAOES_PATH,
-                    sheet_name=SHEET_AUTOMACOES,
-                    engine="openpyxl",
-                )
-            except ValueError:
-                logger_cron.warning("[XLSX] Worksheet '%s' em falta.", SHEET_AUTOMACOES)
-                with _bq_cache_lock:
-                    return _bq_cache["records"]
-        df = df.dropna(how="all")
+        client = bigquery.Client()
+        query = f"SELECT * FROM `{TABLE_REGISTRO_AUTOMAOES}`"
+        df = client.query(query).to_dataframe(create_bqstorage_client=False)
+        df = df.dropna(how='all')
         df.columns = [str(c).strip().upper() for c in df.columns]
-        logger_cron.info("[XLSX] %s registros encontrados.", len(df))
+        logger_cron.info(f"[BIGQUERY] {len(df)} registros encontrados.")
     except Exception as e:
-        logger_cron.exception("[XLSX] Erro crítico ao ler cadastro: %s", e)
+        logger_cron.exception(f"[BIGQUERY] Erro crítico ao ler tabela: {e}")
+        # On error, return stale cache if available
         with _bq_cache_lock:
             return _bq_cache["records"]
 
@@ -2887,7 +2905,7 @@ def _ler_registro_bq(force: bool = False) -> list[dict]:
             "area_name":               _safe_str(row.get("AREA_NAME", "sem area")).lower(),
             "cron_raw":                cron_raw,
             "is_valid_cron":           _is_valid_cron(cron_raw),
-            "cron_source":             "xlsx",
+            "cron_source":             "bigquery",
             "is_active":               _parse_bool(row.get("IS_ACTIVE", False)),
             "priority":                _parse_priority(row.get("PRIORITY", 2)),
             "emails_principal":        _safe_str(row.get("EMAILS_PRINCIPAL", "")),
@@ -2903,7 +2921,7 @@ def _ler_registro_bq(force: bool = False) -> list[dict]:
     with _bq_cache_lock:
         _bq_cache["records"] = records
         _bq_cache["ts"] = time.time()
-    logger_cron.info("[XLSX CACHE] Cache atualizado com %s registros.", len(records))
+    logger_cron.info(f"[BQ CACHE] Cache atualizado com {len(records)} registros.")
     return records
 
 def _get_all_scripts(local_files: dict[str, Path], force_bq: bool = False) -> list[dict]:
@@ -2925,7 +2943,7 @@ def _get_schedulable_scripts(local_files: dict[str, Path], force_bq: bool = Fals
         if not s["is_valid_cron"]:
             logger_cron.warning(
                 f"[IGNORADO] '{s['python_name']}': CRON inválido ('{s['cron_raw']}'). "
-                "Corrija na planilha (worksheet AUTOMACOES, coluna CRON)."
+                "Corrija em BigQuery (coluna CRON)."
             )
             continue
         if not s["available_locally"]:
@@ -3159,8 +3177,10 @@ def _run_p2p3(task_data: dict) -> None:
 
         exit_code = proc.returncode
         elapsed = round(time.time() - t_start, 1)
-        if exit_code == 0 or exit_code == 2:
+        if exit_code == 0:
             tag = "[OK]"
+        elif exit_code == 2:
+            tag = "[NO_DATA]"
         else:
             tag = "[ERR]"
         logger_cron.info(f"{tag} {name} | exit={exit_code} | elapsed={elapsed}s")
@@ -3229,8 +3249,10 @@ def _run_p1(task_data: dict) -> None:
 
         exit_code = proc.returncode
         elapsed = round(time.time() - t_start, 1)
-        if exit_code == 0 or exit_code == 2:
+        if exit_code == 0:
             tag = "[OK]"
+        elif exit_code == 2:
+            tag = "[NO_DATA]"
         else:
             tag = "[ERR]"
         logger_cron.info(f"{tag} {name} (P1) | exit={exit_code} | elapsed={elapsed}s")
@@ -3333,7 +3355,7 @@ _jobstores = {
 _scheduler = BackgroundScheduler(jobstores=_jobstores, timezone=TZ)
 _last_reload_ts: float = 0.0
 _reload_ts_lock = threading.Lock()
-# Never remove these when rebuilding per-script cron jobs (catch-up was being dropped on every registry reload).
+# Never remove these when rebuilding per-script cron jobs (catch-up was being dropped on every BQ reload).
 _SCHEDULER_PROTECTED_JOB_IDS = frozenset({"hot_reload_job", "catchup_job"})
 
 
@@ -3344,8 +3366,8 @@ def _job_wrapper(python_name: str, path: str, area_name: str, priority: int) -> 
     )
 
 def recarregar_agendamentos() -> list[dict]:
-    logger_cron.info("[RELOAD] Recarregando agendamentos da planilha (AUTOMACOES)...")
-    # Permissoes USERS: Uploaders + registo de login Cron alinham no mesmo reload.
+    logger_cron.info("[RELOAD] Recarregando agendamentos do BigQuery...")
+    # Permissoes servercron: Uploaders + registo de login Cron alinham no mesmo reload BQ.
     PermissionService.invalidate_servercron_cache()
     _invalidate_access_registry_cache()
     _invalidate_local_files_cache()
@@ -3375,7 +3397,7 @@ def recarregar_agendamentos() -> list[dict]:
             logger_cron.warning(f"Cron inválido '{s['cron_raw']}' para {s['python_name']}: {e}")
 
     logger_cron.info(f"[RELOAD OK] {jobs_criados} jobs criados de {len(scripts)} scripts ativos")
-    # After registry reload, enqueue missed windows (same as periodic catch-up; job must stay registered — see _SCHEDULER_PROTECTED_JOB_IDS).
+    # After BQ reload, enqueue missed windows (same as periodic catch-up; job must stay registered — see _SCHEDULER_PROTECTED_JOB_IDS).
     threading.Thread(target=_catchup_pending_scripts, daemon=True, name="reload-catchup").start()
     return scripts
 
@@ -3383,7 +3405,7 @@ def iniciar_scheduler() -> None:
     recarregar_agendamentos()
     _scheduler.add_job(
         recarregar_agendamentos, "interval", minutes=RELOAD_INTERVAL_MINUTES,
-        id="hot_reload_job", name=f"Hot-Reload planilha (a cada {RELOAD_INTERVAL_MINUTES}min)",
+        id="hot_reload_job", name=f"Hot-Reload automático BQ (a cada {RELOAD_INTERVAL_MINUTES}min)",
         replace_existing=True
     )
     # Catch-up job: every 10 min, detect pending scripts and enqueue them
@@ -3501,13 +3523,12 @@ if CRON_URL_PREFIX:
     _app.config["SESSION_COOKIE_PATH"] = _p.rstrip("/") or "/"
 # Duo ports: default SESSION_COOKIE_PATH (/) is fine; cookie name already differs from Uploaders.
 CORS(_app, supports_credentials=True)
-register_punk_background_routes(_app, PANEL_HTML_DIR)
 _reload_last: float = 0.0
 _reload_lock = threading.Lock()
 
 
 def _manual_bq_resync_shared() -> tuple[dict, int]:
-    """Recarrega jobs a partir da planilha; `recarregar_agendamentos` ja invalida caches de permissoes. Cooldown global 3 min."""
+    """Recarrega jobs do BQ; `recarregar_agendamentos` ja invalida caches de permissoes. Cooldown global 3 min."""
     global _reload_last
     now = time.time()
     with _reload_lock:
@@ -3610,7 +3631,7 @@ def api_auth_request_token():
     reg = _get_access_registry()
     if username not in reg:
         logger_cron.warning(
-            "[AUTH] request-token: NEGADO | user=%s | nao consta na worksheet USERS | "
+            "[AUTH] request-token: NEGADO | user=%s | nao consta em servercron (BigQuery) | "
             "registro atual tem %d usuario(s)",
             username,
             len(reg),
@@ -3671,7 +3692,7 @@ def api_auth_verify():
     reg = _get_access_registry()
     if username not in reg:
         logger_cron.warning(
-            "[AUTH] verify: NEGADO | user=%s | nao cadastrado na worksheet USERS",
+            "[AUTH] verify: NEGADO | user=%s | nao cadastrado em servercron (BigQuery)",
             username,
         )
         return jsonify({"status": "error", "message": "Usuário não autorizado."}), 403
@@ -3773,8 +3794,9 @@ def api_share_outlook():
 @_app.route("/")
 def root():
     # Cron is the default landing page; Uploaders is available from the Uploaders tab.
-    if _resolve_panel_file("Server.html") is not None:
-        return render_template("Server.html", portal_view="cron")
+    for _cron_tpl in ("ServerCRON.html", "Server.html"):
+        if _resolve_panel_file(_cron_tpl) is not None:
+            return render_template(_cron_tpl, portal_view="cron")
     if _DASHBOARD_FILE.exists():
         return send_file(str(_DASHBOARD_FILE), mimetype="text/html")
     return jsonify({"status": "ok", "mode": "backend-only", "docs": f"http://{HOST}:{CRON_STANDALONE_PORT}/api/status"})
@@ -3887,7 +3909,7 @@ def api_script_detail(python_name: str):
     with _history_lock:
         found["recent_history"] = [
             h for h in _execution_history
-            if h["python_name"] == name and h.get("status") == "success"
+            if h["python_name"] == name and h.get("status") in ("success", "error", "no_data")
         ][:20]
     return jsonify(found)
 
@@ -3905,7 +3927,7 @@ def api_areas():
 
 @_app.route("/api/areas/summary")
 def api_areas_summary():
-    """Counts per area from xlsx registry (worksheet AUTOMACOES; fast; no disk walk)."""
+    """Counts per area from BigQuery registry (fast; no disk walk)."""
     counts: dict[str, int] = {}
     for r in _ler_registro_bq():
         a = r["area_name"]
@@ -3931,7 +3953,7 @@ def api_scripts_by_area():
 
 @_app.route("/api/scripts/search")
 def api_scripts_search():
-    """Busca scripts por nome ou área em todo o cadastro (usa cache de disco + xlsx)."""
+    """Busca scripts por nome ou área em todo o cadastro (usa cache de disco + BQ)."""
     q = (request.args.get("q") or "").strip().lower()
     if not q:
         return jsonify([])
@@ -4007,9 +4029,6 @@ def api_history():
     with _history_lock:
         entries = list(_execution_history)
 
-    # Dashboard policy: keep history focused on successful runs.
-    entries = [e for e in entries if e.get("status") == "success"]
-
     if script_filter:
         entries = [e for e in entries if script_filter in e["python_name"]]
     if area_filter:
@@ -4025,23 +4044,25 @@ def api_history():
 
 
 def _aggregate_history_stats(entries: list[dict]) -> dict:
-    """Counts and percentages by status; per-script breakdown. Excludes killed runs."""
+    """SUCCESS vs ERROR shares for the dashboard; NO_DATA não entra nessa taxa. killed excluído."""
     counts = {"success": 0, "error": 0}
     by_script: dict[str, dict[str, int]] = {}
     for e in entries:
         st = e.get("status", "")
         if st == "killed":
             continue
-        if st in counts:
-            counts[st] += 1
         pn = e.get("python_name") or "?"
         if pn not in by_script:
             by_script[pn] = {"success": 0, "error": 0, "total": 0}
-        if st in by_script[pn]:
-            by_script[pn][st] += 1
         by_script[pn]["total"] += 1
-    total = sum(counts.values())
-    pct = {k: round(100.0 * v / total, 1) if total else 0.0 for k, v in counts.items()}
+        if st == "success":
+            counts["success"] += 1
+            by_script[pn]["success"] += 1
+        elif st == "error":
+            counts["error"] += 1
+            by_script[pn]["error"] += 1
+    total = counts["success"] + counts["error"]
+    pct = {k: round(100.0 * counts[k] / total, 1) if total else 0.0 for k in ("success", "error")}
     return {"total": total, "counts": counts, "percent": pct, "by_script": by_script}
 
 
@@ -4052,8 +4073,6 @@ def api_history_stats():
         script_filter = request.args.get("script", "").lower().strip()
         with _history_lock:
             entries = list(_execution_history)
-        # Dashboard policy: aggregate only successful runs.
-        entries = [e for e in entries if e.get("status") == "success"]
         if script_filter:
             entries = [e for e in entries if script_filter in (e.get("python_name") or "").lower()]
 

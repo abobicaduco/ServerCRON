@@ -1,0 +1,223 @@
+/* ServerCRON — shared CSS (no animated background module). */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Main app shell (layout wrapper above page background). */
+.server-app-shell {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}
+
+html[data-theme="light"] body {
+  background-color: var(--app-bg, #f8fafc) !important;
+}
+
+
+
+/* cron_8bit.css */
+/* ServerCron — tema 8-bit / painéis Cron */
+
+html.cron-8bit {
+  /* Tipografia pixel: corpo legível; títulos reforçados no próprio HTML via Tailwind */
+  font-family: "Press Start 2P", monospace;
+  font-size: 11px;
+  line-height: 1.75;
+  image-rendering: pixelated;
+}
+
+html.cron-8bit .font-mono,
+html.cron-8bit code,
+html.cron-8bit pre {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.95em;
+}
+
+/* Cantos “quadrados” e bordas grossas estilo retrô */
+html.cron-8bit .rounded-xl,
+html.cron-8bit .rounded-2xl,
+html.cron-8bit .rounded-lg,
+html.cron-8bit .rounded-md,
+html.cron-8bit .rounded {
+  border-radius: 0 !important;
+}
+
+html.cron-8bit .login-card {
+  border-width: 3px !important;
+  border-color: rgba(255, 107, 53, 0.85) !important;
+  box-shadow:
+    4px 4px 0 #000,
+    0 0 28px rgba(255, 42, 42, 0.35);
+}
+
+html.cron-8bit .login-title {
+  font-family: "Press Start 2P", monospace;
+  font-size: 0.8rem !important;
+  line-height: 1.65 !important;
+  text-shadow: 0 0 12px rgba(255, 42, 42, 0.45);
+}
+
+html.cron-8bit #login-overlay {
+  background: transparent !important;
+}
+
+html.cron-8bit .nav-item span,
+html.cron-8bit #sidebar h1 {
+  font-size: 0.6rem !important;
+  line-height: 1.5 !important;
+}
+
+html.cron-8bit #page-title,
+html.cron-8bit #page-title-mobile {
+  font-family: "Press Start 2P", monospace;
+  font-size: 0.7rem !important;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 10px rgba(255, 107, 53, 0.35);
+}
+
+html.cron-8bit .mobile-bar-cron span {
+  font-size: 0.55rem !important;
+}
+
+html.cron-8bit button,
+html.cron-8bit .login-input {
+  font-family: "Press Start 2P", monospace !important;
+  font-size: 0.7rem !important;
+}
+
+/* Campo do código: maior que inputs normais no tema 8-bit */
+html.cron-8bit .login-token-field.login-input {
+  font-size: 0.88rem !important;
+  letter-spacing: 0.18em !important;
+}
+
+html.cron-8bit .theme-header-bar,
+html.cron-8bit .mobile-bar-cron {
+  border-bottom-width: 3px !important;
+  border-color: rgba(255, 107, 53, 0.35) !important;
+}
+
+html.cron-8bit #sidebar {
+  border-right-width: 3px !important;
+  border-color: rgba(255, 107, 53, 0.25) !important;
+}
+
+html.cron-8bit .nav-item.active {
+  border-right-width: 4px !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 210, 63, 0.15);
+}
+
+html.cron-8bit table {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.85em;
+}
+
+html.cron-8bit .shadow-card {
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Uploaders embutido no Cron (iframe): oculta chrome duplicado no filho */
+html.cron-upload-embed #sound-controls,
+html.cron-upload-embed body > header {
+  display: none !important;
+}
+
+/* Painel Uploaders transparente para o fundo do Cron (pai) aparecer */
+html.cron-upload-embed,
+html.cron-upload-embed body,
+html.cron-upload-embed .server-app-shell,
+html.cron-upload-embed main {
+  background: transparent !important;
+}
+
+html.cron-upload-embed body {
+  padding-bottom: 0.5rem !important;
+}
+
+html.cron-upload-embed main {
+  padding-top: 0.25rem;
+}
+
+/* ── Layout Full HD (1920×1080): tipografia 8-bit legível + iframe Envio mais alto ── */
+.cron-uploaders-embed-shell {
+  min-height: min(70vh, 640px);
+}
+.cron-uploaders-embed-iframe {
+  display: block;
+  width: 100%;
+  height: min(70vh, 800px);
+  min-height: 480px;
+}
+@media (min-width: 1536px) {
+  html.cron-8bit {
+    font-size: 13px;
+    line-height: 1.65;
+  }
+  html.cron-8bit .nav-item span,
+  html.cron-8bit #sidebar h1 {
+    font-size: 0.66rem !important;
+  }
+  html.cron-8bit #page-title,
+  html.cron-8bit #page-title-mobile {
+    font-size: 0.78rem !important;
+  }
+  html.cron-8bit button,
+  html.cron-8bit .login-input {
+    font-size: 0.74rem !important;
+  }
+  html.cron-8bit .login-token-field.login-input {
+    font-size: 0.92rem !important;
+  }
+  html.cron-8bit .login-title {
+    font-size: 0.84rem !important;
+  }
+  /* Menos “vazio” entre cabeçalho e iframe */
+  .cron-uploaders-embed-shell {
+    min-height: calc(100dvh - 10.5rem);
+  }
+  .cron-uploaders-embed-iframe {
+    height: calc(100dvh - 10.5rem);
+    min-height: 520px;
+  }
+}
+@media (min-width: 1920px) {
+  html.cron-8bit {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  html.cron-8bit .nav-item span,
+  html.cron-8bit #sidebar h1 {
+    font-size: 0.72rem !important;
+  }
+  html.cron-8bit #page-title,
+  html.cron-8bit #page-title-mobile {
+    font-size: 0.88rem !important;
+  }
+  html.cron-8bit button,
+  html.cron-8bit .login-input {
+    font-size: 0.8rem !important;
+  }
+  html.cron-8bit .login-token-field.login-input {
+    font-size: 1rem !important;
+  }
+  html.cron-8bit .login-title {
+    font-size: 0.92rem !important;
+  }
+  html.cron-8bit .mobile-bar-cron span {
+    font-size: 0.62rem !important;
+  }
+  .cron-uploaders-embed-shell {
+    min-height: min(calc(100vh - 9.25rem), calc(1080px - 9.25rem));
+  }
+  .cron-uploaders-embed-iframe {
+    height: min(calc(100vh - 9.25rem), calc(1080px - 9.25rem));
+    min-height: 600px;
+  }
+}
+
+html.cron-8bit {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  image-rendering: auto;
+}
+
