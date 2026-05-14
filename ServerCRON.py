@@ -6,7 +6,7 @@ Arranque:
     python ServerCRON.py
     python server.py
 
-No arranque como programa principal (``python ServerCRON.py`` ou ``python server.py``), se existir ``requirements.txt`` na mesma pasta, corre **sempre** ``pip install -r requirements.txt`` antes de carregar o resto (comportamento idempotente). O atalho ``server.py`` apenas delega para ``ServerCRON.py``.
+No arranque como programa principal (``python ServerCRON.py`` ou ``python server.py``), se existir ``requirements.txt`` na mesma pasta, corre **sempre** ``pip install -r requirements.txt`` antes de carregar o resto (comportamento idempotente), salvo se ``SERVERCRON_SKIP_REQUIREMENTS_PIP=1`` (útil quando o ambiente já tem as dependências e o ``pip`` falharia). O atalho ``server.py`` apenas delega para ``ServerCRON.py``.
 
 Painel: `ServerCRON.html` (vistas Cron + Uploaders via `portal_view`). Assets: `ServerCRON.css`, `ServerCRON.js`.
 
@@ -55,6 +55,10 @@ _env_base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Pa
 _load_dotenv_if_present(_env_base)
 
 
+def _skip_requirements_pip_on_boot() -> bool:
+    return str(os.environ.get("SERVERCRON_SKIP_REQUIREMENTS_PIP", "")).lower() in ("1", "true", "yes")
+
+
 def _pip_sync_requirements_txt(base_dir: Path) -> None:
     """Run ``pip install -r requirements.txt`` when that file exists (idempotent). Only for ``python ServerCRON.py``."""
     req = base_dir / "requirements.txt"
@@ -72,7 +76,10 @@ def _pip_sync_requirements_txt(base_dir: Path) -> None:
 
 # Operator defaults when this process is the main script — must run before PANEL_HTML_DIR.
 if __name__ == "__main__":
-    _pip_sync_requirements_txt(_env_base)
+    if not _skip_requirements_pip_on_boot():
+        _pip_sync_requirements_txt(_env_base)
+    else:
+        print("[BOOT] SERVERCRON_SKIP_REQUIREMENTS_PIP=1 — a saltar pip install -r requirements.txt", flush=True)
     _op_root = Path(__file__).resolve().parent
     os.environ.setdefault("SERVERCRON_PANEL_DIR", str(_op_root))
     os.environ.setdefault("SERVERCRON_DUO_PORTS", "0")

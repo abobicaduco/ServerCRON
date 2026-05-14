@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ServerCRON — preview (Uploaders)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brandgold: '#d3ad65',
+            brandgoldHover: '#c49d55',
+            brandblack: '#0a0a0a',
+            brandgray: '#1a1a1a',
+          },
+        },
+      },
+    };
+  </script>
+</head>
+<body class="min-h-screen bg-brandblack text-white antialiased flex flex-col">
+  <p class="text-center text-[10px] text-amber-200/90 py-2 bg-amber-950/40 border-b border-amber-500/20">
+    Preview estático para portfolio / LinkedIn — substitua por captura real do <strong>ServerCRON</strong> em execução.
+  </p>
+  <header class="border-b border-white/5 px-6 py-4 flex items-center justify-between bg-black/40">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg border border-[#d3ad65]/40 bg-black/30 flex items-center justify-center text-[#d3ad65]">
+        <i class="fas fa-server"></i>
+      </div>
+      <h1 class="font-bold text-sm tracking-tight">ServerCRON</h1>
+    </div>
+    <span class="text-[10px] uppercase font-bold text-gray-500">Uploaders</span>
+  </header>
+  <main class="flex-grow flex items-center justify-center p-8">
+    <div class="w-full max-w-xl">
+      <div class="text-center mb-10">
+        <div class="w-24 h-24 bg-[#d3ad65]/10 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-[#d3ad65]/20">
+          <i class="fas fa-shield-halved text-4xl text-[#d3ad65]"></i>
+        </div>
+        <h2 class="text-4xl font-black text-white tracking-tight">Acesso Restrito</h2>
+        <p class="text-gray-500 mt-4 font-medium text-lg max-w-lg mx-auto">Insira seu usuário de rede para autenticação.</p>
+      </div>
+      <div class="space-y-8 bg-white/[0.03] border border-white/10 rounded-2xl p-8">
+        <div class="space-y-3">
+          <label class="text-xs font-black uppercase tracking-widest text-gray-500 ml-1">Usuário de Rede</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-5 flex items-center text-gray-500 text-lg">
+              <i class="fas fa-at"></i>
+            </div>
+            <input type="text" readonly value="demo.usuario"
+              class="block w-full pl-12 pr-36 py-5 text-lg bg-[#1a1a1a] border border-white/5 rounded-2xl text-white font-bold" />
+            <div class="absolute inset-y-0 right-0 flex items-center pr-5 pointer-events-none">
+              <span class="text-sm font-black text-gray-600 uppercase">@empresa.com.br</span>
+            </div>
+          </div>
+        </div>
+        <button type="button"
+          class="w-full bg-[#d3ad65] hover:bg-[#c49d55] text-[#0a0a0a] font-black py-5 rounded-2xl flex items-center justify-center gap-3 uppercase tracking-widest text-base">
+          Solicitar Token <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
