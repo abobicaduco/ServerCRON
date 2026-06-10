@@ -1,6 +1,11 @@
 # ServerCRON
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-portal-000000?logo=flask)](https://flask.palletsprojects.com/)
+[![SQLite](https://img.shields.io/badge/SQLite-scheduler-003B57?logo=sqlite)](https://sqlite.org/)
 
+> **EN:** Single-file Flask portal combining file uploads and a cron-style Python script scheduler — Excel-based RBAC (`USERS`/`AUTOMACOES` sheets), SQLite run history, built for corporate Windows machines without admin rights.
 
 Portal **Flask** único: **Uploaders** (envio de ficheiros) + **Cron** (agendamento e execução de scripts Python), com permissões e cadastro de automações na planilha **`registro_automacoes.xlsx`** (folhas **`USERS`** e **`AUTOMACOES`**), e **SQLite** local para o agendador e histórico de execuções.
 
@@ -136,3 +141,11 @@ Quase sempre **sim**, desde que:
 
 Não há garantia sem testar no teu PC da empresa (política de rede, proxy, versão Python, perfil Outlook). Usa o checklist acima e o primeiro arranque no terminal para ver erros explícitos (planilha em falta, import, porta em uso).
 
+
+---
+
+## Autor / Author
+
+**Carlos Eduardo (abobicaduco)** · [GitHub](https://github.com/abobicaduco) · [LinkedIn](https://www.linkedin.com/in/carlos-eduardo-20ba5740a/)
+
+Licença: [MIT](LICENSE)
