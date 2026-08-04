@@ -3,19 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#090a0f">
+  <meta name="theme-color" content="#f0f1f4">
   <title>ServerCRON</title>
   <link rel="stylesheet" href="/static/style.css">
-  <link rel="stylesheet" href="/static/stars.css">
   <script src="/static/app.js" defer></script>
   <script src="/static/auth-check.js"></script>
 </head>
 <body>
-  <div class="stars-bg" aria-hidden="true">
-    <div id="stars"></div>
-    <div id="stars2"></div>
-    <div id="stars3"></div>
-  </div>
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
@@ -146,7 +140,7 @@
           </div>
           <div class="stats-charts">
             <div class="stats-chart-box">
-              <h4>Execucoes por dia</h4>
+              <h4>Execuções da semana</h4>
               <div class="chart-wrap">
                 <canvas id="chart-trend" width="640" height="220" aria-label="Grafico de tendencia diaria"></canvas>
               </div>
@@ -158,6 +152,7 @@
                 <li><span class="swatch ok"></span> success (0)</li>
                 <li><span class="swatch err"></span> error (1)</li>
                 <li><span class="swatch nodata"></span> no_data (2)</li>
+                <li><span class="swatch trend"></span> tendência (total/dia)</li>
               </ul>
             </div>
             <div class="stats-chart-box">
@@ -224,10 +219,6 @@
               Mês
               <select id="report-month" disabled><option value="">Todos</option></select>
             </label>
-            <label>
-              Dia
-              <select id="report-day" disabled><option value="">Todos</option></select>
-            </label>
           </form>
         </div>
 
@@ -247,11 +238,13 @@
             <li><span class="swatch ok"></span> success (0)</li>
             <li><span class="swatch err"></span> error (1)</li>
             <li><span class="swatch nodata"></span> no_data (2)</li>
+            <li><span class="swatch trend"></span> tendência (total/dia)</li>
           </ul>
         </div>
 
         <div class="panel">
           <h3>Comparativo (fixo, não segue os filtros acima)</h3>
+          <p class="muted small" style="margin: -0.5rem 0 1rem;">Número grande é o período atual; "Antes" mostra o valor do período anterior.</p>
           <div class="compare-grid" id="report-compare"></div>
         </div>
       </section>

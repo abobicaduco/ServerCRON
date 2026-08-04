@@ -1258,20 +1258,30 @@ def list_history(limit: int = 100) -> list[dict[str, Any]]:
 
 
 def list_history_today() -> list[dict[str, Any]]:
-    """Execucoes cujo start_time e do dia local atual."""
+    """Execucoes de hoje (local), a partir do CSV — nao do SQLite.
+
+    O SQLite guarda so as ultimas 500 corridas NO TOTAL (todas as automacoes, ver
+    insert_run). Num dia com bastante catchup (ex.: um script "*/1 * * * *" parado
+    de manha e recuperando a tarde) isso poda os horarios mais cedo do dia da tabela
+    antes mesmo do fim do dia. Como detect_pending_today() usa esta lista pra saber
+    se um horario ja foi coberto por alguma execucao, perder essas linhas fazia o
+    painel mostrar "atrasada Xh" para sempre num horario que ja tinha rodado horas
+    atras — so que o registro dele tinha sido descartado do SQLite nesse meio tempo.
+    O CSV (historico_execucoes.csv) nunca e podado, entao e a fonte certa aqui.
+    """
     today = now_local().strftime("%Y-%m-%d")
-    with _db_lock:
-        conn = _db()
-        rows = conn.execute(
-            """
-            SELECT * FROM execution_runs
-            WHERE start_time LIKE ?
-            ORDER BY start_time ASC
-            """,
-            (today + "%",),
-        ).fetchall()
-        conn.close()
-    return [dict(r) for r in rows]
+    if not HISTORY_CSV_PATH.is_file():
+        return []
+    out: list[dict[str, Any]] = []
+    try:
+        with HISTORY_CSV_PATH.open("r", encoding="utf-8-sig", newline="") as f:
+            reader = csv.DictReader(f)
+            for raw in reader:
+                if str(raw.get("data") or "") == today:
+                    out.append(raw)
+    except OSError:
+        log.exception("[PENDING] falha a ler CSV %s", HISTORY_CSV_PATH)
+    return out
 
 
 def execution_stats(*, days: int = 7) -> dict[str, Any]:

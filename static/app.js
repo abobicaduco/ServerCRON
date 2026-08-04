@@ -779,7 +779,12 @@
           drawStackedTrend(canvas, hit.series, bar.i);
         }
         const row = hit.series[bar.i] || {};
-        const title = formatDateBr(row.day + "T12:00:00", false).split(" - ").pop() || row.day;
+        const rawDay = String(row.day || "");
+        // hit.series.day pode ser data ISO (grafico do Dashboard) ou rotulo ja
+        // formatado tipo "23/07"/"jan" (grafico do Relatorio) — so reformatar no 1o caso.
+        const title = /^\d{4}-\d{2}-\d{2}$/.test(rawDay)
+          ? formatDateBr(rawDay + "T12:00:00", false).split(" - ").pop()
+          : rawDay || "-";
         showChartTooltip(
           canvas,
           tooltipBreakdownHtml(title, row.success, row.error, row.no_data),
@@ -853,7 +858,10 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
 
-    const pad = { t: 24, r: 14, b: 48, l: 42 };
+    // t=40 (nao 24): a barra mais alta encosta exatamente no topo do grafico
+    // (topY = pad.t), entao precisa desse respiro pra caber o numero do total
+    // + o ponto da linha de tendencia por cima dela sem colidir.
+    const pad = { t: 40, r: 14, b: 48, l: 42 };
     const w = cssW - pad.l - pad.r;
     const h = cssH - pad.t - pad.b;
     const rows = (series || []).map((r) => {
@@ -905,6 +913,44 @@
       ctx.globalAlpha = 1;
     }
 
+    // Rotulos (dia embaixo, total em cima) sao "selective direct labels": com poucas
+    // barras cabem todos, mas com muitas (ex.: 30 dias) o texto de cada barra colide
+    // com o vizinho — em vez de desenhar em todas, so desenha em barras espacadas o
+    // suficiente pra nao sobrepor (a barra em si continua sendo desenhada sempre).
+    const dayLabels = rows.map((row) => {
+      const rawDay = String(row.day || "");
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rawDay)) {
+        return rawDay.slice(8, 10) + "/" + rawDay.slice(5, 7);
+      }
+      if (/^\d{4}-\d{2}$/.test(rawDay)) {
+        return rawDay.slice(5, 7) + "/" + rawDay.slice(2, 4);
+      }
+      return rawDay || "-";
+    });
+
+    ctx.font = "700 15px Sora, Segoe UI, sans-serif";
+    const maxDayLabelW = dayLabels.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
+    ctx.font = "700 14px Sora, Segoe UI, sans-serif";
+    const maxTotalLabelW = rows.reduce((m, r) => Math.max(m, ctx.measureText(String(r.total)).width), 0);
+
+    const slot = barW + gap;
+    const dayStep = Math.max(1, Math.ceil((maxDayLabelW + 10) / slot));
+    const totalStep = Math.max(1, Math.ceil((maxTotalLabelW + 8) / slot));
+    const lastIdx = n - 1;
+
+    // O ultimo rotulo e sempre forcado (mostra o dia mais recente), mas se o rotulo
+    // "regular" logo antes dele estiver perto demais, os dois colidem (ex.: "03/08"
+    // grudado em "04/08") — suprime esse regular vizinho nesse caso.
+    const suppressNearEnd = (step, requiredW) => {
+      if (lastIdx <= 0) return -1;
+      let idx = Math.floor(lastIdx / step) * step;
+      if (idx === lastIdx) idx -= step;
+      if (idx < 0) return -1;
+      return (lastIdx - idx) * slot < requiredW ? idx : -1;
+    };
+    const daySuppressIdx = suppressNearEnd(dayStep, maxDayLabelW + 10);
+    const totalSuppressIdx = suppressNearEnd(totalStep, maxTotalLabelW + 8);
+
     const bars = [];
     rows.forEach((row, i) => {
       const x = pad.l + i * (barW + gap);
@@ -933,27 +979,72 @@
         ctx.strokeRect(x + 0.5, pad.t + 0.5, barW - 1, h - 1);
         ctx.globalAlpha = 1;
       }
-      if (total > 0) {
+      const showTotal =
+        total > 0 &&
+        ((i % totalStep === 0 && i !== totalSuppressIdx) || i === lastIdx || i === hoverIndex);
+      if (showTotal) {
         const topY = pad.t + h - (total / maxY) * h;
         ctx.fillStyle = dim ? muted : text;
         ctx.font = "700 14px Sora, Segoe UI, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
-        ctx.fillText(String(total), x + barW / 2, Math.max(pad.t + 14, topY - 4));
+        // -11 (nao -4) pra sobrar espaco do ponto da linha de tendencia, que fica
+        // exatamente no topo da barra (mesmo Y usado pelo total). O piso e so pra
+        // nao cortar o texto no topo do canvas, nao precisa mais depender de pad.t
+        // (esse respiro ja foi reservado no valor de pad.t acima).
+        ctx.fillText(String(total), x + barW / 2, Math.max(16, topY - 11));
       }
-      const rawDay = String(row.day || "");
-      let label = rawDay;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(rawDay)) {
-        label = rawDay.slice(8, 10) + "/" + rawDay.slice(5, 7);
-      } else if (/^\d{4}-\d{2}$/.test(rawDay)) {
-        label = rawDay.slice(5, 7) + "/" + rawDay.slice(2, 4);
+      const showDay = (i % dayStep === 0 && i !== daySuppressIdx) || i === lastIdx || i === hoverIndex;
+      if (showDay) {
+        ctx.fillStyle = dim ? muted : text;
+        ctx.font = "700 15px Sora, Segoe UI, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillText(dayLabels[i] || "-", x + barW / 2, pad.t + h + 12);
       }
-      ctx.fillStyle = text;
-      ctx.font = "700 15px Sora, Segoe UI, sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
-      ctx.fillText(label || "-", x + barW / 2, pad.t + h + 12);
     });
+
+    // Linha de tendencia: liga o topo de cada barra (total do dia) pra mostrar
+    // se a serie esta subindo ou descendo, sem depender so da altura isolada
+    // de cada barra. Halo na cor do fundo por baixo pra nao sumir quando passa
+    // por cima de um segmento colorido da barra.
+    if (rows.some((r) => r.total > 0) && n > 1) {
+      const accent = cssVar("--accent", "#8a6a15");
+      const surface = cssVar("--bg-elev", "#ffffff");
+      const points = rows.map((row, i) => ({
+        x: pad.l + i * (barW + gap) + barW / 2,
+        y: pad.t + h - (row.total / maxY) * h,
+      }));
+
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.strokeStyle = surface;
+      ctx.lineWidth = 4.5;
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+      ctx.stroke();
+
+      points.forEach((p, i) => {
+        const isHover = hoverIndex === i;
+        const r = isHover ? 5 : 3;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r + 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = surface;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = accent;
+        ctx.fill();
+      });
+    }
 
     if (!rows.some((r) => r.total > 0)) {
       ctx.fillStyle = muted;
@@ -1213,13 +1304,12 @@
   // ---------------------------------------------------------------------
 
   let reportToken = 0;
-  const reportFilters = { year: "", month: "", day: "" };
+  const reportFilters = { year: "", month: "" };
 
   function reportQuery() {
     const params = [];
     if (reportFilters.year) params.push("year=" + encodeURIComponent(reportFilters.year));
     if (reportFilters.month) params.push("month=" + encodeURIComponent(reportFilters.month));
-    if (reportFilters.day) params.push("day=" + encodeURIComponent(reportFilters.day));
     return params.length ? "?" + params.join("&") : "";
   }
 
@@ -1258,17 +1348,12 @@
 
     const yearSel = $("report-year");
     const monthSel = $("report-month");
-    const daySel = $("report-day");
     if (yearSel && document.activeElement !== yearSel) {
       fillSelect(yearSel, data.available.years || [], reportFilters.year, "Todos");
     }
     monthSel.disabled = !reportFilters.year;
-    daySel.disabled = !(reportFilters.year && reportFilters.month);
     if (monthSel && document.activeElement !== monthSel) {
       fillSelect(monthSel, data.available.months || [], reportFilters.month, "Todos");
-    }
-    if (daySel && document.activeElement !== daySel) {
-      fillSelect(daySel, data.available.days || [], reportFilters.day, "Todos");
     }
 
     const title = $("report-period-title");
@@ -1330,10 +1415,10 @@
   }
 
   function deltaCls(value, higherIsBetter) {
-    if (value == null || value === 0) return "cr-delta flat";
+    if (value == null || value === 0) return "flat";
     const up = value > 0;
     const good = higherIsBetter ? up : !up;
-    return "cr-delta " + (up ? "up" : "down") + "-" + (good ? "good" : "bad");
+    return (up ? "up" : "down") + "-" + (good ? "good" : "bad");
   }
   function deltaArrow(value) {
     if (value == null || value === 0) return "→";
@@ -1341,8 +1426,76 @@
   }
   function fmtDeltaPct(v) {
     if (v == null) return "–";
-    const sign = v > 0 ? "+" : "";
-    return sign + v + "%";
+    const sign = v > 0 ? "+" : v < 0 ? "-" : "";
+    return sign + Math.abs(v).toLocaleString("pt-BR") + "%";
+  }
+  // Numeros grandes com separador de milhar pt-BR (1586 -> "1.586").
+  function fmtNum(v) {
+    return Number(v || 0).toLocaleString("pt-BR");
+  }
+  // Delta em pontos percentuais (nao confundir com variacao relativa %).
+  function fmtPts(v) {
+    const n = Math.round(Math.abs(v || 0) * 10) / 10;
+    const sign = v > 0 ? "+" : v < 0 ? "-" : "";
+    return sign + n.toLocaleString("pt-BR") + " pts";
+  }
+
+  // Veredito resumido do periodo: combina variacao de sucesso/erro/sem_dados
+  // (em pontos percentuais) numa unica palavra + cor, pro leigo bater o olho.
+  function buildVerdict(block) {
+    const dSucc = block.delta_taxa_sucesso || 0;
+    const dErr = block.delta_taxa_erro || 0;
+    const dNod = block.delta_taxa_sem_dados || 0;
+    const score = dSucc - dErr - 0.5 * dNod;
+    if (score > 1.5) return { cls: "good", label: "Melhorou", icon: "↑" };
+    if (score < -1.5) return { cls: "bad", label: "Piorou", icon: "↓" };
+    return { cls: "flat", label: "Estável", icon: "→" };
+  }
+
+  // Frase em portugues simples explicando o comparativo, sem exigir que o
+  // usuario interprete numeros/percentuais sozinho.
+  function buildSummary(block) {
+    const c = block.curr;
+    const dTotalPct = block.delta_pct_total;
+    const dSucc = block.delta_taxa_sucesso || 0;
+    const dErr = block.delta_taxa_erro || 0;
+
+    let execPhrase;
+    if (dTotalPct == null) {
+      execPhrase = "sem execuções no período anterior para comparar";
+    } else if (dTotalPct > 0) {
+      execPhrase = "<strong>" + fmtNum(dTotalPct) + "% a mais</strong> que no período anterior";
+    } else if (dTotalPct < 0) {
+      execPhrase = "<strong>" + fmtNum(Math.abs(dTotalPct)) + "% a menos</strong> que no período anterior";
+    } else {
+      execPhrase = "igual ao período anterior";
+    }
+
+    const succPhrase =
+      dSucc > 0
+        ? 'sucesso <strong class="good">subiu ' + fmtPts(dSucc).replace("+", "") + "</strong>"
+        : dSucc < 0
+        ? 'sucesso <strong class="bad">caiu ' + fmtPts(dSucc).replace("-", "") + "</strong>"
+        : "sucesso ficou igual";
+
+    const errPhrase =
+      dErr > 0
+        ? 'erro <strong class="bad">subiu ' + fmtPts(dErr).replace("+", "") + "</strong>"
+        : dErr < 0
+        ? 'erro <strong class="good">caiu ' + fmtPts(dErr).replace("-", "") + "</strong>"
+        : "erro ficou igual";
+
+    return (
+      "<strong>" +
+      fmtNum(c.total) +
+      "</strong> execuções neste período, " +
+      execPhrase +
+      ". A taxa de " +
+      succPhrase +
+      " e a de " +
+      errPhrase +
+      "."
+    );
   }
 
   function renderCompareCard(rootId, cards) {
@@ -1350,12 +1503,46 @@
     if (!root) return;
     root.innerHTML = "";
     cards.forEach(({ title, block }) => {
+      const verdict = buildVerdict(block);
       const rows = [
-        { label: "Execuções", curr: block.curr.total, prev: block.prev.total, delta: block.delta_pct_total, higherIsBetter: true },
-        { label: "% success", curr: block.curr.taxa_sucesso + "%", prev: block.prev.taxa_sucesso + "%", delta: block.delta_taxa_sucesso, higherIsBetter: true },
-        { label: "% error", curr: block.curr.taxa_erro + "%", prev: block.prev.taxa_erro + "%", delta: block.delta_taxa_erro, higherIsBetter: false },
-        { label: "% no_data", curr: block.curr.taxa_sem_dados + "%", prev: block.prev.taxa_sem_dados + "%", delta: block.delta_taxa_sem_dados, higherIsBetter: false },
+        {
+          label: "Execuções",
+          curr: block.curr.total,
+          prev: block.prev.total,
+          delta: block.delta_pct_total,
+          deltaText: fmtDeltaPct(block.delta_pct_total),
+          higherIsBetter: true,
+          percent: false,
+        },
+        {
+          label: "Taxa de sucesso",
+          curr: block.curr.taxa_sucesso,
+          prev: block.prev.taxa_sucesso,
+          delta: block.delta_taxa_sucesso,
+          deltaText: fmtPts(block.delta_taxa_sucesso),
+          higherIsBetter: true,
+          percent: true,
+        },
+        {
+          label: "Taxa de erro",
+          curr: block.curr.taxa_erro,
+          prev: block.prev.taxa_erro,
+          delta: block.delta_taxa_erro,
+          deltaText: fmtPts(block.delta_taxa_erro),
+          higherIsBetter: false,
+          percent: true,
+        },
+        {
+          label: "Taxa sem dados",
+          curr: block.curr.taxa_sem_dados,
+          prev: block.prev.taxa_sem_dados,
+          delta: block.delta_taxa_sem_dados,
+          deltaText: fmtPts(block.delta_taxa_sem_dados),
+          higherIsBetter: false,
+          percent: true,
+        },
       ];
+
       const card = document.createElement("div");
       card.className = "compare-card";
       card.innerHTML =
@@ -1365,21 +1552,36 @@
         esc(block.curr_label) +
         " · Anterior " +
         esc(block.prev_label) +
-        '</p><div class="compare-rows"></div>';
-      const rowsRoot = card.querySelector(".compare-rows");
+        '</p><span class="cr-verdict ' +
+        verdict.cls +
+        '"><span class="cr-verdict-icon"></span><span class="cr-verdict-label"></span></span>' +
+        '<p class="cr-summary"></p>' +
+        '<div class="cr-scores"></div>';
+      card.querySelector(".cr-verdict-icon").textContent = verdict.icon;
+      card.querySelector(".cr-verdict-label").textContent = verdict.label;
+      card.querySelector(".cr-summary").innerHTML = buildSummary(block);
+
+      const scoresRoot = card.querySelector(".cr-scores");
       rows.forEach((r) => {
-        const rowEl = document.createElement("div");
-        rowEl.className = "compare-row";
-        rowEl.innerHTML =
-          '<span class="cr-label"></span><span class="cr-curr"></span><span class="cr-prev"></span><span class="' +
-          deltaCls(r.delta, r.higherIsBetter) +
-          '"></span>';
-        rowEl.children[0].textContent = r.label;
-        rowEl.children[1].textContent = String(r.curr);
-        rowEl.children[2].textContent = "antes " + r.prev;
-        rowEl.children[3].textContent = deltaArrow(r.delta) + " " + fmtDeltaPct(r.delta);
-        rowsRoot.appendChild(rowEl);
+        const cls = deltaCls(r.delta, r.higherIsBetter);
+        const unit = r.percent ? "%" : "";
+
+        const tile = document.createElement("div");
+        tile.className = "cr-score";
+        tile.innerHTML =
+          '<p class="cr-score-label"></p>' +
+          '<p class="cr-score-value"></p>' +
+          '<p class="cr-score-delta ' +
+          cls +
+          '"></p>' +
+          '<p class="cr-score-prev"></p>';
+        tile.querySelector(".cr-score-label").textContent = r.label;
+        tile.querySelector(".cr-score-value").textContent = fmtNum(r.curr) + unit;
+        tile.querySelector(".cr-score-delta").textContent = deltaArrow(r.delta) + " " + r.deltaText;
+        tile.querySelector(".cr-score-prev").textContent = "Antes: " + fmtNum(r.prev) + unit;
+        scoresRoot.appendChild(tile);
       });
+
       root.appendChild(card);
     });
   }
@@ -1525,25 +1727,16 @@
 
     const reportYearSel = $("report-year");
     const reportMonthSel = $("report-month");
-    const reportDaySel = $("report-day");
     if (reportYearSel) {
       reportYearSel.addEventListener("change", () => {
         reportFilters.year = reportYearSel.value;
         reportFilters.month = "";
-        reportFilters.day = "";
         loadReport();
       });
     }
     if (reportMonthSel) {
       reportMonthSel.addEventListener("change", () => {
         reportFilters.month = reportMonthSel.value;
-        reportFilters.day = "";
-        loadReport();
-      });
-    }
-    if (reportDaySel) {
-      reportDaySel.addEventListener("change", () => {
-        reportFilters.day = reportDaySel.value;
         loadReport();
       });
     }
@@ -1552,7 +1745,6 @@
       btnReportClear.addEventListener("click", () => {
         reportFilters.year = "";
         reportFilters.month = "";
-        reportFilters.day = "";
         loadReport();
       });
     }
