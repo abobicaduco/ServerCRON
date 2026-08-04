@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090a0f">
+  <title>ServerCRON</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/stars.css">
+  <script src="/static/app.js" defer></script>
+  <script src="/static/auth-check.js"></script>
+</head>
+<body>
+  <div class="stars-bg" aria-hidden="true">
+    <div id="stars"></div>
+    <div id="stars2"></div>
+    <div id="stars3"></div>
+  </div>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">SC</span>
+        <div class="brand-text">
+          <h1>Server<span>CRON</span></h1>
+          <p class="brand-sub">Excel + cron</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <button type="button" class="nav-btn active" data-tab="dashboard">Dashboard</button>
+        <button type="button" class="nav-btn" data-tab="relatorio">Relatório</button>
+        <button type="button" class="nav-btn" data-tab="scripts">Automacoes</button>
+        <button type="button" class="nav-btn" data-tab="queue">Fila</button>
+        <button type="button" class="nav-btn" data-tab="history">Historico</button>
+        <button type="button" class="nav-btn" data-tab="users">Usuarios</button>
+        <button type="button" class="nav-btn" data-tab="paths">Caminhos</button>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h2 id="page-title">Dashboard</h2>
+          <p id="page-sub" class="muted">Estado do agendador</p>
+          <p class="reload-meta reload-meta-top" id="reload-meta-top">
+            <span class="reload-meta-line">
+              Ultima atualizacao dos crons:
+              <strong id="reload-last-top">-</strong>
+            </span>
+            <span class="reload-meta-line">
+              Proxima:
+              <strong id="reload-next-top">-</strong>
+              <span id="reload-countdown-top" class="muted"></span>
+            </span>
+          </p>
+        </div>
+        <div class="topbar-actions">
+          <div class="card-weather" id="status-clock" title="Clima e horário — São Paulo (Open-Meteo)">
+            <section class="info-section">
+              <div class="background-design">
+                <div class="circle"></div>
+                <div class="circle"></div>
+                <div class="circle"></div>
+              </div>
+              <div class="left-side">
+                <div class="weather">
+                  <div class="weather-icon" id="clock-weather-icon" aria-hidden="true"></div>
+                  <div id="clock-condition">a carregar…</div>
+                </div>
+                <div class="temperature" id="clock-temp">--°</div>
+                <div class="range" id="clock-range">--°/--°</div>
+              </div>
+              <div class="right-side">
+                <div>
+                  <div class="hour" id="clock-hour">--:--</div>
+                  <div class="date" id="clock-date">-</div>
+                </div>
+                <div class="city" id="clock-city">São Paulo</div>
+              </div>
+            </section>
+            <section class="days-section" id="clock-weekdays" aria-label="Próximos dias"></section>
+          </div>
+        </div>
+      </header>
+
+      <section id="tab-dashboard" class="tab active">
+        <div class="cards">
+          <article class="card">
+            <p class="card-label">Automacoes na pasta</p>
+            <p class="card-value" id="stat-py-disk">-</p>
+          </article>
+          <article class="card">
+            <p class="card-label">Na planilha</p>
+            <p class="card-value" id="stat-total">-</p>
+          </article>
+          <article class="card">
+            <p class="card-label">Ativas</p>
+            <p class="card-value" id="stat-active">-</p>
+          </article>
+          <article class="card">
+            <p class="card-label">Desativadas</p>
+            <p class="card-value" id="stat-inactive">-</p>
+          </article>
+          <article class="card">
+            <p class="card-label">A rodar (max 5)</p>
+            <p class="card-value" id="stat-running">-</p>
+          </article>
+          <article class="card">
+            <p class="card-label">Na fila</p>
+            <p class="card-value" id="stat-queue">-</p>
+          </article>
+          <article class="card">
+            <p class="card-label">Pendentes hoje</p>
+            <p class="card-value" id="stat-pending">-</p>
+          </article>
+        </div>
+        <div class="panel stats-panel">
+          <div class="panel-head">
+            <h3>Execucoes · tendencia (7 dias)</h3>
+            <button type="button" class="btn sm" id="btn-refresh-stats" title="Relê o CSV via API">Atualizar graficos</button>
+          </div>
+          <p class="hint stats-hint" id="stats-hint">
+            <span class="stats-hint-line">
+              <span class="st-ok">success (0)</span> processou com sucesso
+            </span>
+            <span class="stats-hint-line">
+              <span class="st-err">error (1)</span> falhou (excecao, arquivo corrompido, etc.)
+            </span>
+            <span class="stats-hint-line">
+              <span class="st-nodata">no_data (2)</span> rodou bem, mas nao havia nada para processar
+              (pasta vazia, email sem anexo, etc.)
+            </span>
+            <span class="stats-hint-line">Ultimos 7 dias (incluindo hoje).</span>
+          </p>
+          <div class="stats-kpis stats-kpis-top">
+            <article class="stats-kpi">
+              <p class="card-label">Execucoes hoje</p>
+              <p class="card-value" id="stats-today-total">0</p>
+              <p class="stats-kpi-sub" id="stats-today-break">0 ok · 0 err · 0 sem dados</p>
+            </article>
+            <article class="stats-kpi">
+              <p class="card-label">Execucoes nos ultimos 7 dias</p>
+              <p class="card-value" id="stats-period-total">0</p>
+              <p class="stats-kpi-sub" id="stats-period-break">0 ok · 0 err · 0 sem dados</p>
+              <p class="stats-kpi-sub" id="stats-period-range">-</p>
+            </article>
+          </div>
+          <div class="stats-charts">
+            <div class="stats-chart-box">
+              <h4>Execucoes por dia</h4>
+              <div class="chart-wrap">
+                <canvas id="chart-trend" width="640" height="220" aria-label="Grafico de tendencia diaria"></canvas>
+              </div>
+              <p class="hint" id="stats-chart-note" style="margin-top:0.4rem">
+                Mesmos numeros dos cartoes (soma das colunas = ultimos 7 dias).
+                Formato do dia: <strong>DD/MM</strong>. Sem catchup.
+              </p>
+              <ul class="chart-legend">
+                <li><span class="swatch ok"></span> success (0)</li>
+                <li><span class="swatch err"></span> error (1)</li>
+                <li><span class="swatch nodata"></span> no_data (2)</li>
+              </ul>
+            </div>
+            <div class="stats-chart-box">
+              <h4>Distribuicao</h4>
+              <div class="chart-wrap">
+                <canvas id="chart-pie" width="280" height="220" aria-label="Grafico de distribuicao"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="stats-kpis stats-kpis-rates">
+            <article class="stats-kpi stats-kpi-ok">
+              <p class="card-label">% success</p>
+              <p class="card-value st-ok" id="stats-success-rate">-</p>
+              <p class="stats-kpi-sub">ultimos 7 dias</p>
+            </article>
+            <article class="stats-kpi stats-kpi-err">
+              <p class="card-label">% error</p>
+              <p class="card-value st-err" id="stats-error-rate">-</p>
+              <p class="stats-kpi-sub">ultimos 7 dias</p>
+            </article>
+            <article class="stats-kpi stats-kpi-nodata">
+              <p class="card-label">% no_data</p>
+              <p class="card-value st-nodata" id="stats-nodata-rate">-</p>
+              <p class="stats-kpi-sub">ultimos 7 dias</p>
+            </article>
+          </div>
+          <div class="stats-top">
+            <h4>Top automacoes nos ultimos 7 dias</h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Automacao</th>
+                    <th>Total</th>
+                    <th>success</th>
+                    <th>% ok</th>
+                    <th>error</th>
+                    <th>% err</th>
+                    <th>no_data</th>
+                    <th>% nd</th>
+                  </tr>
+                </thead>
+                <tbody id="stats-top-body">
+                  <tr><td colspan="5" class="muted">Sem dados ainda.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-relatorio" class="tab">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Filtrar por período</h3>
+            <button type="button" class="btn sm" id="btn-report-clear">Limpar filtros</button>
+          </div>
+          <form class="report-filters" id="report-filters">
+            <label>
+              Ano
+              <select id="report-year"><option value="">Todos</option></select>
+            </label>
+            <label>
+              Mês
+              <select id="report-month" disabled><option value="">Todos</option></select>
+            </label>
+            <label>
+              Dia
+              <select id="report-day" disabled><option value="">Todos</option></select>
+            </label>
+          </form>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 id="report-period-title">Todo o período</h3>
+          </div>
+          <div class="cards" id="report-tiles"></div>
+        </div>
+
+        <div class="panel stats-panel">
+          <h3 id="report-trend-title">Execuções por dia · últimos 30 dias</h3>
+          <div class="chart-wrap">
+            <canvas id="report-trend-chart" width="900" height="250" aria-label="Execuções no período, por status"></canvas>
+          </div>
+          <ul class="chart-legend">
+            <li><span class="swatch ok"></span> success (0)</li>
+            <li><span class="swatch err"></span> error (1)</li>
+            <li><span class="swatch nodata"></span> no_data (2)</li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <h3>Comparativo (fixo, não segue os filtros acima)</h3>
+          <div class="compare-grid" id="report-compare"></div>
+        </div>
+      </section>
+
+      <section id="tab-scripts" class="tab">
+        <div class="toolbar">
+          <input type="search" id="script-search" placeholder="Filtrar por nome…" autocomplete="off">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Area</th>
+                <th>Cron</th>
+                <th>Ativa</th>
+                <th>Ficheiro</th>
+                <th>Proxima</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="scripts-body">
+              <tr><td colspan="7" class="muted">A carregar…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-queue" class="tab">
+        <div class="queue-split">
+          <div class="panel history-col-panel">
+            <div class="panel-head">
+              <h3>Pendentes / atrasadas (hoje)</h3>
+              <button type="button" class="btn sm" id="btn-catchup">Atualizar fila do dia</button>
+            </div>
+            <p class="hint" id="pending-hint">
+              Max. <strong><span id="max-concurrent-label">5</span></strong> a rodar ao mesmo tempo
+              (automacoes diferentes).<br>
+              O resto fica na fila. Atrasadas primeiro; depois os horarios do dia.
+            </p>
+            <div id="pending-list" class="live-list live-list-scroll">
+              <p class="muted">Nenhuma pendente.</p>
+            </div>
+          </div>
+          <div class="panel history-col-panel">
+            <h3>Fila (proximas do dia)</h3>
+            <div id="queue-list" class="live-list live-list-scroll live-list-tall">
+              <p class="muted">Fila vazia.</p>
+            </div>
+            <h3 class="subhead">A rodar agora <span class="muted" id="live-capacity"></span></h3>
+            <p class="hint">Limite: 5. O restante espera na fila.</p>
+            <div id="live-list" class="live-list">
+              <p class="muted">Nenhuma automacao em execucao.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-history" class="tab">
+        <div class="panel">
+          <h3>Historico de execucoes</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Quando</th>
+                  <th>Nome</th>
+                  <th>Motivo</th>
+                  <th>Estado</th>
+                  <th>Duracao</th>
+                  <th>Exit</th>
+                </tr>
+              </thead>
+              <tbody id="history-body">
+                <tr><td colspan="6" class="muted">A carregar…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-users" class="tab">
+        <div class="panel">
+          <h3>Quem pode acessar</h3>
+          <p class="hint">
+            Emails cadastrados aqui conseguem entrar no painel (login por email, sem senha).
+            Isso escreve direto na aba <code>USERS</code> de <code>registro_automacoes.xlsx</code> —
+            nao precisa abrir o Excel.
+          </p>
+          <form id="user-add-form" class="row-actions" style="flex-wrap:wrap">
+            <input type="email" id="user-add-email" placeholder="email@exemplo.com" autocomplete="off" required style="flex:1;min-width:220px">
+            <input type="text" id="user-add-nome" placeholder="Nome (opcional)" autocomplete="off" style="flex:1;min-width:160px">
+            <button type="submit" class="btn sm primary">Adicionar</button>
+          </form>
+          <p class="scan-flash" id="user-add-error" hidden></p>
+          <div class="table-wrap" style="margin-top:0.75rem">
+            <table>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Nome</th>
+                  <th>Ativo</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="users-body">
+                <tr><td colspan="4" class="muted">A carregar…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-paths" class="tab">
+        <div class="panel">
+          <h3>Seguranca</h3>
+          <p class="hint" id="auth-status">A verificar…</p>
+          <p class="row-actions" style="margin:0">
+            <button type="button" class="btn sm" id="btn-change-token">Sair / trocar de conta</button>
+          </p>
+          <p class="hint" style="margin-top:0.6rem">
+            Em caso de duvidas, entre em contato com <a href="mailto:abobicarlo@gmail.com">abobicarlo@gmail.com</a>.
+          </p>
+        </div>
+        <div class="panel scan-panel">
+          <h3>Leitura da pasta</h3>
+          <ul id="scan-summary" class="scan-summary">
+            <li class="muted">A carregar…</li>
+          </ul>
+          <p id="config-flash" class="scan-flash" hidden></p>
+        </div>
+        <div class="panel">
+          <h3>Pasta das automacoes</h3>
+          <p class="hint">
+            Planilha <code>registro_automacoes.xlsx</code> na raiz do projeto
+            (junto de <code>server.py</code>).<br>
+            Os <code>.py</code> ficam em <code>automacoes/</code> (areas), com busca recursiva.<br>
+            Ex.: <code>automacoes/financeiro/mensal/relatorios.py</code>
+          </p>
+          <form id="form-automacoes-dir" class="path-form">
+            <input type="text" id="input-automacoes-dir" spellcheck="false"
+              placeholder="./automacoes (junto de server.py)" autocomplete="off">
+            <button type="submit" class="btn primary" id="btn-save-dir">Guardar</button>
+          </form>
+          <p class="hint" id="config-msg"></p>
+        </div>
+        <div class="panel">
+          <h3>Caminhos</h3>
+          <dl class="kv">
+            <dt>Home</dt>
+            <dd id="path-home">-</dd>
+            <dt>Data root</dt>
+            <dd id="path-data">-</dd>
+            <dt>Config</dt>
+            <dd id="path-config">-</dd>
+            <dt>Areas</dt>
+            <dd id="path-areas">-</dd>
+            <dt>Planilha</dt>
+            <dd id="path-xlsx">-</dd>
+            <dt>Pasta automacoes</dt>
+            <dd id="path-dir">-</dd>
+            <dt>SQLite</dt>
+            <dd id="path-sqlite">-</dd>
+            <dt>Historico CSV (Power BI / Excel)</dt>
+            <dd id="path-csv">-</dd>
+          </dl>
+          <p class="row-actions" style="margin:0.75rem 0">
+            <button type="button" class="btn primary" id="btn-rebuild-excel">
+              Atualizar Excel a partir do CSV
+            </button>
+          </p>
+          <p class="hint" id="excel-rebuild-msg">
+            So le o CSV (nao altera). Depois reabra o ServerCRON_Dashboard.xlsx
+            ou use Desktop/ServerCRON/dashboards/Abrir_Dashboard.bat
+          </p>
+          <dl class="kv">
+            <dt>Fuso</dt>
+            <dd id="path-tz">-</dd>
+            <dt>Intervalo auto-reload</dt>
+            <dd id="path-reload">-</dd>
+            <dt>Ultima atualizacao crons</dt>
+            <dd id="path-reload-last">-</dd>
+            <dt>Proxima atualizacao crons</dt>
+            <dd id="path-reload-next">-</dd>
+          </dl>
+          <p class="hint">
+            Colunas: <code>nome_automacao</code>, <code>cron_schedule</code>,
+            <code>is_active</code> (TRUE/FALSE).<br>
+            Ex.: <code>backup_diario</code> →
+            <code>automacoes/&lt;area&gt;/backup_diario.py</code>
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+
+  <dialog id="output-dialog">
+    <form method="dialog" class="dialog-inner">
+      <header>
+        <h3 id="dialog-title">Saida</h3>
+        <button type="submit" class="btn ghost">Fechar</button>
+      </header>
+      <pre id="dialog-output"></pre>
+    </form>
+  </dialog>
+</body>
+</html>

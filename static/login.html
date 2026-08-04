@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090a0f">
+  <title>ServerCRON · Entrar</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 380px;
+      background: var(--panel-bg, #14141c);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+    }
+    .login-card .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1.25rem;
+    }
+    .login-card h1 {
+      margin: 0;
+      font-size: 1.15rem;
+    }
+    .login-card h1 span {
+      color: var(--accent);
+    }
+    .login-card input {
+      width: 100%;
+      margin-top: 0.75rem;
+    }
+    .login-card .btn {
+      width: 100%;
+      margin-top: 0.9rem;
+    }
+    .login-card .btn.ghost {
+      margin-top: 0.5rem;
+    }
+    #login-otp-note {
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <form class="login-card" id="login-form">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">SC</span>
+      <h1>Server<span>CRON</span></h1>
+    </div>
+
+    <p class="hint" id="login-hint">Informe o seu email para entrar. Ele precisa estar cadastrado na lista de acesso.</p>
+
+    <!-- Modo legado (sem aba USERS, so SERVERCRON_API_TOKEN) -->
+    <input type="password" id="login-token" placeholder="Token" autocomplete="off" spellcheck="false" hidden>
+
+    <!-- Passo 1: email -->
+    <input type="email" id="login-email" placeholder="seuemail@exemplo.com" autocomplete="email" spellcheck="false" autofocus>
+
+    <!-- Passo 2: codigo recebido por email (comeca escondido) -->
+    <input type="text" id="login-code" placeholder="Codigo recebido por email" autocomplete="one-time-code" spellcheck="false" hidden>
+    <p class="hint" id="login-otp-note" hidden></p>
+
+    <p class="scan-flash" id="login-error" hidden></p>
+    <button type="submit" class="btn primary" id="login-submit">Entrar</button>
+    <button type="button" class="btn ghost" id="login-resend" hidden>Reenviar codigo / trocar email</button>
+
+    <p class="hint" style="margin-top:0.9rem">
+      Em caso de duvidas, entre em contato com <a href="mailto:abobicarlo@gmail.com">abobicarlo@gmail.com</a>.
+    </p>
+  </form>
+
+  <script src="/static/login.js" defer></script>
+</body>
+</html>
