@@ -1,55 +1,33 @@
-# Python
+# Credenciais e sessões — NUNCA versionar
+*.env
+.env*
+credentials*.json
+*token*.json
+*api*key*.json
+cookies/
+*.cookies
+cookies.txt
+*-profile/
+
+# Dados pessoais
+*.db
+*.sqlite*
+config.json
+logs/
+
+# Python / Node / Flutter / Android
 __pycache__/
 *.py[cod]
-*$py.class
-*.egg-info/
 .venv/
 venv/
-env/
-
-# Segredos e config local (NUNCA versionar)
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-*.p12
-*.pfx
-*credentials*
-*secret*
-*token*.json
-
-# Runtime / dados locais
-*.log
-logs/
-*.sqlite
-*.sqlite-wal
-*.sqlite-shm
-server_cron.sqlite
-registro_automacoes.xlsx
-config.json
-
-# Testes locais (podem apontar emails/paths do PC)
-_test_auth.py
-_test_*.py
-_boot_*.log
-servercron_restart.log
-
-# IDE / agentes locais
+node_modules/
+dist/
+.next/
 .idea/
-.vscode/
-.cursor/
-.opencode/
-*.swp
-*~
+.gradle/
+build/
 
-# SO
-.DS_Store
+# Sistema
+desktop.ini
 Thumbs.db
-Desktop.ini
-
-# Power BI local (se existir)
-**/ServerCRON_Dashboard.SemanticModel/.pbi/
-**/.pbi/localSettings.json
-**/.pbi/cache/
-*.pbix.bak
+.DS_Store

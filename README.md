@@ -1,172 +1,92 @@
 # ServerCRON
 
-Agendador de scripts Python controlado por planilha Excel. Backend em Python
-(Flask + Waitress); painel em HTML, CSS e JavaScript nativos (sem CDN, sem React).
+Servidor e gerenciador de automações de tarefas agendadas (Cron Jobs) em Python.
 
-Repositorio: https://github.com/caducosilva/ServerCRON
+---
 
-## Como funciona
+## O problema
 
-1. Pasta `automacoes/` (junto de `server.py`) com os scripts `.py`.
-2. Na **raiz do projeto** fica `registro_automacoes.xlsx` (copie do exemplo).
-3. Dentro de `automacoes/`, organize por areas e subpastas; o servidor faz
-   **pesquisa recursiva** por `{nome_automacao}.py`:
+1. **O que é:** O **ServerCRON** é uma plataforma de gerenciamento e agendamento de scripts de automação.
+2. **Qual necessidade ataca:** Garante que scripts de manutenção, relatórios e backups sejam executados pontualmente nos horários programados.
+3. **Por que existe:** O agendador de tarefas nativo do sistema por vezes falha de forma silenciosa e não gera relatórios amigáveis.
+4. **Qual o objetivo:** Oferecer um ambiente centralizado em Python para gerenciar e registrar tarefas automáticas.
 
-```
-ServerCRON/
-  server.py
-  install_deps.bat
-  registro_automacoes.xlsx          # local (nao versionado)
-  registro_automacoes.example.xlsx  # modelo no GitHub
-  automacoes/
-    financeiro/
-      mensal/
-        backup_diario.py
-    teste/
-      abrir_calculadora.py
-    exemplo/
-      exemplo_hello.py
-  static/
-    index.html
-    style.css
-    app.js
-```
+---
 
-4. Colunas da planilha (aba `AUTOMACOES`):
+## Recursos
 
-| nome_automacao | cron_schedule | is_active |
-|----------------|---------------|-----------|
-| exemplo_hello  | `0 8 * * 1-5` | TRUE      |
-| backup_diario  | `0 2 * * *`   | FALSE     |
+- ✅ **Agendamento Flexível:** Agende rotinas com sintaxe cron padrão ou intervalos de tempo.
+- ✅ **Registro de Execuções:** Histórico completo de logs das automações executadas.
+- ✅ **Instalador de Dependências:** Script `install_deps.bat` para configuração rápida em ambientes Windows.
 
-5. Aba `USERS` (opcional): emails autorizados para login por OTP.
-6. `nome_automacao` e o nome do Python em qualquer profundidade.
-7. O servidor agenda conforme `cron_schedule` (fuso `America/Sao_Paulo` por defeito).
-8. `is_active` = TRUE agenda; FALSE ignora.
+---
 
-Na primeira execucao, se a pasta/planilha nao existirem, o ServerCRON pode criar
-estrutura basica. Preferivel copiar o exemplo:
+## Instalação
 
-```powershell
-copy registro_automacoes.example.xlsx registro_automacoes.xlsx
-```
+### Pré-requisitos
+- Python 3.10 ou superior
 
-Dados de runtime ficam em `Path.home() / "Documents" / "ServerCRON"` (ou
-`SERVERCRON_DATA_ROOT`):
-
-- `server_cron.sqlite` (ultimas execucoes do painel)
-- `logs/historico_execucoes.csv` (historico completo)
-
-## Instalacao
-
+### Instalação
 ```bash
 git clone https://github.com/caducosilva/ServerCRON.git
 cd ServerCRON
-copy registro_automacoes.example.xlsx registro_automacoes.xlsx
-python server.py
+install_deps.bat
 ```
 
-No arranque, o `server.py` pode correr o `install_deps.bat` (`pip install -r
-requirements.txt`), reiniciar o processo e subir o servidor.
+---
 
-Para saltar a instalacao (deps ja instaladas):
+## Como usar
+
+Configure suas rotinas na pasta `automacoes` e inicie o gerenciador:
+```bash
+python automacoes/main.py
+```
+
+---
+
+## Configuração
+
+Copie `.env.example` para `.env` e configure as chaves necessárias.
+
+| Variável | Descrição |
+|---|---|
+| `CRON_INTERVAL` | Intervalo padrão de checagem |
+
+---
+
+## Detalhes técnicos relevantes
+
+- **Linguagem:** Python 3.10+.
+- **Logs:** Registrados em formato de planilha e arquivo `.log`.
+
+---
+
+## Testes
 
 ```bash
-set SERVERCRON_SKIP_REQUIREMENTS_PIP=1
-python server.py
+python -m unittest discover automacoes
 ```
 
-Painel: http://127.0.0.1:5001/
+---
 
-## Autenticacao
+## Problemas comuns
 
-- Uso local em `127.0.0.1`: painel pode ficar aberto.
-- Expor na rede (`SERVERCRON_HOST=0.0.0.0`): obrigatorio `SERVERCRON_API_TOKEN`
-  **ou** pelo menos 1 email ativo na aba `USERS` (login por codigo no email).
-- Copie `.env.example` para `.env` e preencha SMTP / token. **Nunca** commit o `.env`.
+| Mensagem de erro | Causa provável | Solução |
+|---|---|---|
+| `ModuleNotFoundError` | Dependências não instaladas | Execute `install_deps.bat` para atualizar os pacotes Python |
 
-## Estrutura
+---
 
-| Ficheiro / pasta | Funcao |
-|------------------|--------|
-| `server.py` | Backend Flask + agendador + SQLite |
-| `install_deps.bat` | Instala deps via pip |
-| `static/` | Painel (HTML/CSS/JS + fontes locais) |
-| `automacoes/` | Scripts agendados + `_servercron_log.py` |
-| `registro_automacoes.example.xlsx` | Modelo da planilha |
-| `.env.example` | Modelo de configuracao |
-| `INSTRUCOES_AUTOMACAO_PYTHON.md` | Padrao para escrever automacoes |
-| `AGENTS.md` / `CLAUDE.md` | Contrato para agents de codigo |
-| `requirements.txt` | Dependencias Python |
+## Apoie o projeto
 
-## API (resumo)
+Se este projeto te ajudou, considere fazer uma doação via PIX:
 
-| Metodo | Caminho | Descricao |
-|--------|---------|-----------|
-| GET | `/api/auth` | Diz se o painel exige auth (nao revela segredos) |
-| GET | `/api/status` | Estado do servidor |
-| GET | `/api/scripts` | Linhas da planilha |
-| POST | `/api/reload` | Recarrega planilha e fila |
-| GET | `/api/history` | Historico de execucoes |
-| POST | `/api/run` | Disparo manual |
-| POST | `/api/kill` | Para processo em curso |
-
-Rotas `/api/*` protegidas conforme token/sessao OTP. Detalhes em `.env.example`.
-
-## Variaveis de ambiente
-
-Ver `.env.example`. Principais:
-
-- `SERVERCRON_DATA_ROOT` - root de dados (default `~/Documents/ServerCRON`)
-- `SERVERCRON_AUTOMAOES_DIR` - pasta das automacoes (opcional)
-- `SERVERCRON_PORT` / `SERVERCRON_HOST`
-- `SERVERCRON_API_TOKEN` - protege API (modo legado sem USERS)
-- `SERVERCRON_SMTP_*` - envio do codigo de login por email
-- `SERVERCRON_JOB_TIMEOUT_SEC` - timeout por job
-- `SERVERCRON_TZ` - fuso dos crons (default `America/Sao_Paulo`)
-
-Paths em env aceitam `~` (`Path.expanduser()`). Nunca hardcode `C:\Users\<nome>`.
-
-## Codigos de saida (retcode)
-
-| Exit code | Status   | Significado |
-|-----------|----------|-------------|
-| `0`       | success  | Processou com sucesso |
-| `1`       | error    | Falha tecnica |
-| `2`       | no_data  | Rodou bem, sem material |
-
-Padrao completo: `INSTRUCOES_AUTOMACAO_PYTHON.md`.
-
-## Logs por automacao
-
-```text
-<SERVERCRON_DATA_ROOT>/logs/<AREA>/<stem_lower>_<YYYYMMDD_HHMMSS>.log
+```
+f74458dc-2a36-49bd-9250-1cef4365ebb8
 ```
 
-Historico agregado: `<SERVERCRON_DATA_ROOT>/logs/historico_execucoes.csv`.
+---
 
-## O que nao sobe para o GitHub
+## Licença
 
-- `.env` (tokens, SMTP, senhas)
-- `registro_automacoes.xlsx` (emails reais da aba USERS)
-- `*.sqlite`, `logs/`, `*.log`
-- `__pycache__/`, `.venv/`
-- testes locais `_test_*.py`
-
-## Apoie
-
-**PIX (chave aleatoria):** `f74458dc-2a36-49bd-9250-1cef4365ebb8`
-
-Titular: Carlos Eduardo, Mogi das Cruzes.
-
-## Contato
-
-Autor: Carlos Eduardo ([@caducosilva](https://github.com/caducosilva))
-
-- LinkedIn: https://www.linkedin.com/in/carlos-da-silva20ba5740a
-- Instagram: https://www.instagram.com/caducosilva
-- Email: abobicarlo@gmail.com
-
-## Licenca
-
-MIT. Veja [LICENSE](LICENSE).
+[MIT](LICENSE) — Carlos Eduardo
