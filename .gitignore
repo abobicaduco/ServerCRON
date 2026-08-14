@@ -31,3 +31,13 @@ build/
 desktop.ini
 Thumbs.db
 .DS_Store
+Desktop.ini
+
+# Power BI local (se existir)
+**/ServerCRON_Dashboard.SemanticModel/.pbi/
+**/.pbi/localSettings.json
+**/.pbi/cache/
+*.pbix.bak
+
+# Dados pessoais do candidato (CPF, RG, telefone)
+automacoes/preencher_vagas/respostas_fixas.json

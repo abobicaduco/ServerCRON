@@ -49,31 +49,183 @@ ao escrever o codigo.
 
 ## 3. Organizacao do ficheiro Python
 
-Ordem fixa no `.py` (de cima para baixo):
+Ordem fixa no `.py` (de cima para baixo). **Nao misturar**.
 
 1. Shebang opcional / `# -*- coding: utf-8 -*-`
 2. Docstring do modulo (1 a 3 linhas: o que a automacao faz)
 3. `from __future__ import annotations` (se usar type hints modernas)
-4. Imports da stdlib (alfabetico por bloco)
-5. Linha em branco
-6. Imports de terceiros (`playwright`, `openpyxl`, etc.)
-7. Linha em branco
-8. Imports locais / do projeto (se houver)
-9. Constantes em `MAIUSCULAS` (paths, timeouts, nomes de pastas)
-10. Funcoes auxiliares (pequenas, uma responsabilidade)
-11. `main() -> int` (fluxo principal; devolve 0, 1 ou 2)
-12. Bloco `if __name__ == "__main__":` com `sys.exit(...)`
+4. **Bloco 1 - imports da stdlib** (apenas biblioteca padrao; nada de playwright/openpyxl aqui)
+5. **Bloco 2 - todas as variaveis / constantes**
+   - `DEPENDENCIAS`, `POS_INSTALL_CMDS`, `HEADLESS`, timeouts, URLs, pastas, `STEM_LOWER`, `LOG_DIR`, etc.
+6. Funcoes auxiliares (incluindo `garantir_dependencias` e log)
+7. `main() -> int` (fluxo principal; devolve 0, 1 ou 2)
+8. Bloco `if __name__ == "__main__":`: log -> `garantir_dependencias()` -> `main()` -> `sys.exit(...)`
 
-### Constantes e paths no topo
+**Importante sobre bibliotecas de terceiros (Playwright, openpyxl, etc.):**
+
+- No topo ficam **apenas** imports da **stdlib** (`sys`, `subprocess`, `importlib`, `pathlib`, ...).
+- Pacotes de terceiros **nao** devem ser importados no topo se ainda puderem nao estar instalados.
+- Lista-os em `DEPENDENCIAS` (variavel do topo).
+- Em `__main__` (ou no inicio de `main`): chamar `garantir_dependencias()` **antes** de usar esses pacotes.
+- So depois disso importar terceiros (no inicio de `main` / funcoes que precisam).
+
+Assim o script faz o `pip install` sozinho e o operador nao precisa de `pip install -r requirements.txt`.
+
+### Bloco 2 obrigatorio: stem do ficheiro + pasta de logs
+
+Todo script deve, **nas variaveis do topo** (nao dentro de funcoes), definir o nome
+do proprio `.py` em execucao e a pasta onde o log da corrida sera gravado:
+
+| Variavel | Como obter | Para que serve |
+|----------|------------|----------------|
+| `_SCRIPT` | `Path(__file__).resolve()` | Path absoluto do `.py` que esta a correr |
+| `STEM_LOWER` | `_SCRIPT.stem.lower()` | Nome do ficheiro sem extensao, em minusculas |
+| `LOG_DIR` | pasta `logs` (criar com `mkdir`) | Onde gravar o `.log` desta execucao |
+| Nome do log | `{STEM_LOWER}_{YYYYMMDD_HHMMSS}.log` | Um ficheiro por corrida |
+
+Exemplo: se o ficheiro for `scrape_quotes_exemplo.py`, o log fica:
+
+```text
+.../logs/.../scrape_quotes_exemplo_20260807_091735.log
+```
+
+`STEM_LOWER` **puxa sempre o nome real do ficheiro** (`Path(__file__).stem.lower()`).
+Nunca hardcodar o nome do script numa string (`"scrape_quotes_exemplo"`).
+Se renomear o `.py`, o nome do log acompanha sozinho.
+
+### Constantes e paths no topo (modelo do bloco 2)
 
 ```python
-from pathlib import Path
+# ---------------------------------------------------------------------------
+# Configuracao (todas as variaveis juntas, depois dos imports)
+# ---------------------------------------------------------------------------
 
-BASE_DIR = Path(__file__).resolve().parent
+TZ = ZoneInfo("America/Sao_Paulo")
+
+# Identidade do script em execucao (nome do .py -> log)
+_SCRIPT = Path(__file__).resolve()
+STEM_LOWER = _SCRIPT.stem.lower()
+BASE_DIR = _SCRIPT.parent
+
+# Area ServerCRON (pasta relativa sob automacoes/)
+_AUTOMAOES_ROOT = next(
+    (p for p in _SCRIPT.parents if p.name.lower() == "automacoes"),
+    _SCRIPT.parent,
+)
+_AREA_REL = _SCRIPT.parent.relative_to(_AUTOMAOES_ROOT)
+AREA_NAME = "." if str(_AREA_REL) == "." else str(_AREA_REL).replace("\\", "/")
+
+# Logs: sempre criar a pasta; ficheiro = STEM_LOWER + timestamp
+LOG_ROOT = Path.home() / "Desktop" / "ServerCRON" / "logs"
+LOG_DIR = LOG_ROOT / AREA_NAME
+
+# Pastas de negocio
 PASTA_ENTRADA = Path.home() / "Downloads" / "Entrada"
-PASTA_SAIDA = Path.home() / "Documents" / "Automacoes" / "minha_automacao" / "saida"
-PASTA_ERROS = Path.home() / "Documents" / "Automacoes" / "minha_automacao" / "erros"
+PASTA_SAIDA = Path.home() / "Documents" / "Automacoes" / STEM_LOWER / "saida"
+PASTA_ERROS = Path.home() / "Documents" / "Automacoes" / STEM_LOWER / "erros"
+
+# Opcoes de execucao / web
+HEADLESS = False
 TIMEOUT_MS = 30_000
+VIEWPORT = {"width": 1920, "height": 1080}
+
+# Identidade na planilha registro_automacoes.xlsx (ver secao 13)
+PYTHON_NAME = STEM_LOWER  # = coluna python_name / nome_automacao
+REGISTRO_XLSX = next(
+    (
+        p / "registro_automacoes.xlsx"
+        for p in _SCRIPT.parents
+        if (p / "registro_automacoes.xlsx").is_file()
+    ),
+    Path.home() / "Desktop" / "ServerCRON" / "registro_automacoes.xlsx",
+)
+EMAIL_DEV = "seu_email_dev@empresa.com"  # so voce recebe em retcode 1 ou 2
+ENVIAR_EMAIL = True  # False para desligar notificacoes nesta automacao
+
+# Bibliotecas de terceiros: (nome_do_import, nome_do_pacote_pip)
+# O script instala sozinho o que faltar (ver garantir_dependencias).
+DEPENDENCIAS: list[tuple[str, str]] = [
+    ("playwright", "playwright"),
+]
+# Comandos extra apos pip (ex.: browsers do Playwright). Lista vazia se nao precisar.
+POS_INSTALL_CMDS: list[list[str]] = [
+    [sys.executable, "-m", "playwright", "install", "chrome"],
+]
+```
+
+Ao iniciar a corrida:
+
+```python
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+stamp = datetime.now(TZ).strftime("%Y%m%d_%H%M%S")
+caminho_log = LOG_DIR / f"{STEM_LOWER}_{stamp}.log"
+```
+
+### Auto-install de bibliotecas (obrigatorio)
+
+Todo `.py` que use pacotes fora da stdlib deve declarar `DEPENDENCIAS` no topo e
+chamar `garantir_dependencias()` **antes** de importar / usar esses pacotes.
+
+Regras:
+
+- So instala o que **falta** (tenta `importlib.import_module`; se der `ImportError`, faz pip).
+- Usar sempre `sys.executable -m pip install ...` (o mesmo Python que esta a correr o script).
+- `check=True` no `subprocess.run`; se o pip falhar -> retcode `1`.
+- Nao pedir ao utilizador para correr `pip install -r requirements.txt` manualmente.
+- Playwright: alem do pip, na **primeira** instalacao garantir o Chrome com
+  `python -m playwright install chrome` (via `POS_INSTALL_CMDS`, so quando o pip
+  acabou de instalar algo).
+- Nao logar tokens; pip pode ser verboso - registar `INFO:` do que esta a instalar.
+
+```python
+import importlib
+import subprocess
+import sys
+
+
+def garantir_dependencias() -> None:
+    """Instala pacotes em falta com o pip do interpretador atual."""
+    faltando: list[str] = []
+    for modulo, pacote in DEPENDENCIAS:
+        try:
+            importlib.import_module(modulo)
+        except ImportError:
+            faltando.append(pacote)
+
+    if faltando:
+        log_info(f"A instalar dependencias: {', '.join(faltando)}")
+        cmd = [sys.executable, "-m", "pip", "install", *faltando]
+        subprocess.run(cmd, check=True)
+        log_info("Dependencias instaladas.")
+        for extra in POS_INSTALL_CMDS:
+            log_info(f"A executar pos-install: {' '.join(extra)}")
+            subprocess.run(extra, check=True)
+    else:
+        log_info("Dependencias ja satisfeitas.")
+```
+
+Ordem no `__main__`:
+
+```python
+if __name__ == "__main__":
+    iniciar_log_execucao()
+    try:
+        try:
+            garantir_dependencias()
+            code = main()  # main (ou funcoes) importa playwright/openpyxl so depois disto
+        except Exception as exc:
+            ...
+        sys.exit(code)
+    finally:
+        fechar_log_execucao()
+```
+
+Dentro de `main` / helpers web, importar terceiros **depois** do ensure:
+
+```python
+def coletar_citacoes() -> list[dict[str, str]]:
+    from playwright.sync_api import sync_playwright  # import local apos garantir_dependencias
+    ...
 ```
 
 ### Funcoes
@@ -408,7 +560,11 @@ from zoneinfo import ZoneInfo
 # ---------------------------------------------------------------------------
 
 TZ = ZoneInfo("America/Sao_Paulo")
+
+# Identidade do script: nome do .py em execucao (sem extensao, minusculas)
 _SCRIPT = Path(__file__).resolve()
+STEM_LOWER = _SCRIPT.stem.lower()
+
 _AUTOMAOES_ROOT = next(
     (p for p in _SCRIPT.parents if p.name.lower() == "automacoes"),
     _SCRIPT.parent,
@@ -416,11 +572,15 @@ _AUTOMAOES_ROOT = next(
 _AREA_REL = _SCRIPT.parent.relative_to(_AUTOMAOES_ROOT)
 AREA_NAME = "." if str(_AREA_REL) == "." else str(_AREA_REL).replace("\\", "/")
 
+# Pasta de logs (criar sempre) + ficheiro STEM_LOWER_timestamp.log
 LOG_ROOT = Path.home() / "Desktop" / "ServerCRON" / "logs"
 LOG_DIR = LOG_ROOT / AREA_NAME
 
 PASTA_ENTRADA = Path.home() / "Downloads" / "Entrada"
-PASTA_SAIDA = Path.home() / "Documents" / "Automacoes" / "exemplo" / "saida"
+PASTA_SAIDA = Path.home() / "Documents" / "Automacoes" / STEM_LOWER / "saida"
+
+HEADLESS = False
+TIMEOUT_MS = 30_000
 
 _log_fp = None
 
@@ -430,14 +590,15 @@ _log_fp = None
 # ---------------------------------------------------------------------------
 
 def iniciar_log_execucao() -> Path:
-    """Cria logs/<AREA>/<stem_lower>_<timestamp>.log."""
+    """Cria LOG_DIR e o ficheiro {STEM_LOWER}_{timestamp}.log."""
     global _log_fp
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(TZ).strftime("%Y%m%d_%H%M%S")
-    caminho = LOG_DIR / f"{_SCRIPT.stem.lower()}_{stamp}.log"
+    caminho = LOG_DIR / f"{STEM_LOWER}_{stamp}.log"
     _log_fp = caminho.open("a", encoding="utf-8", newline="\n")
     log_info(f"Log da execucao: {caminho}")
     log_info(f"Script: {_SCRIPT}")
+    log_info(f"STEM_LOWER: {STEM_LOWER}")
     log_info(f"Area: {AREA_NAME}")
     return caminho
 
@@ -562,11 +723,14 @@ em disco (ver abaixo).
 ### Ficheiro .log por execucao (obrigatorio)
 
 As automacoes vivem em `automacoes/<AREA>/.../<script>.py`.
-Em cada corrida devem criar um log em:
+Em cada corrida devem **criar** a pasta de logs (se nao existir) e gravar:
 
 ```text
-Path.home() / "Desktop" / "ServerCRON" / "logs" / <AREA_NAME> / <stem_lower>_<timestamp>.log
+Path.home() / "Desktop" / "ServerCRON" / "logs" / <AREA_NAME> / <STEM_LOWER>_<timestamp>.log
 ```
+
+`STEM_LOWER` e variavel do topo: `Path(__file__).resolve().stem.lower()`.
+Ex.: ficheiro `baixar_notas.py` -> `baixar_notas_20260807_091735.log`.
 
 Regras do caminho:
 
@@ -574,8 +738,8 @@ Regras do caminho:
 |-------|--------|
 | Raiz | `Path.home() / "Desktop" / "ServerCRON" / "logs"` (nunca hardcodar `C:\Users\...`) |
 | `AREA_NAME` | pasta(s) relativa(s) sob `automacoes/` (ex.: script em `automacoes/teste/foo.py` -> area `teste`; em `automacoes/financeiro/mensal/bar.py` -> `financeiro/mensal`) |
-| Nome do ficheiro | `{Path(__file__).stem.lower()}_{YYYYMMDD_HHMMSS}.log` |
-| Criacao | `mkdir(parents=True, exist_ok=True)` antes de escrever |
+| Nome do ficheiro | `{STEM_LOWER}_{YYYYMMDD_HHMMSS}.log` (STEM_LOWER = `Path(__file__).stem.lower()`) |
+| Criacao | `LOG_DIR.mkdir(parents=True, exist_ok=True)` **sempre** antes de escrever |
 | Conteudo | as mesmas linhas do console (`INFO`/`OK`/`NO_DATA`/`ERRO`/traceback/`RETCODE`) |
 
 Exemplo:
@@ -622,6 +786,7 @@ TZ = ZoneInfo("America/Sao_Paulo")
 
 # Pasta automacoes = pai(s) ate chegar a "automacoes"; area = relativo a ela
 _SCRIPT = Path(__file__).resolve()
+STEM_LOWER = _SCRIPT.stem.lower()
 _AUTOMAOES_ROOT = next(
     (p for p in _SCRIPT.parents if p.name.lower() == "automacoes"),
     _SCRIPT.parent,
@@ -636,15 +801,16 @@ _log_fp = None  # ficheiro da execucao atual
 
 
 def iniciar_log_execucao() -> Path:
-    """Cria logs/<AREA>/<stem_lower>_<timestamp>.log e devolve o path."""
+    """Cria logs/<AREA>/{STEM_LOWER}_{timestamp}.log e devolve o path."""
     global _log_fp
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(TZ).strftime("%Y%m%d_%H%M%S")
-    nome = f"{_SCRIPT.stem.lower()}_{stamp}.log"
+    nome = f"{STEM_LOWER}_{stamp}.log"
     caminho = LOG_DIR / nome
     _log_fp = caminho.open("a", encoding="utf-8", newline="\n")
     _escrever_ficheiro(f"INFO: Log da execucao: {caminho}")
     _escrever_ficheiro(f"INFO: Script: {_SCRIPT}")
+    _escrever_ficheiro(f"INFO: STEM_LOWER: {STEM_LOWER}")
     _escrever_ficheiro(f"INFO: Area: {AREA_NAME}")
     return caminho
 
@@ -793,27 +959,32 @@ RETCODE: 0
 
 ## 11. Dependencias e ambiente
 
-- Listar deps minimas (`requirements.txt` ou comentario no topo se for um unico script).
+- **Nao depender** de o utilizador correr `pip install -r requirements.txt` a mao.
+- Declarar `DEPENDENCIAS` (e `POS_INSTALL_CMDS` se preciso) nas variaveis do topo.
+- Chamar `garantir_dependencias()` no arranque (antes de usar pacotes de terceiros).
 - Python 3.10+ salvo requisito da empresa.
 - Windows: paths com `pathlib` (funciona com `/` e `\`).
 - Fuso: se a empresa for Brasil, preferir horarios em `America/Sao_Paulo` quando relevante.
+- Se quiser documentar deps num `requirements.txt`, pode; mas o script **tem** de se auto-instalar na mesma.
 
 ---
 
 ## 12. Integracao ServerCRON (se aplicavel)
 
-- Nome do ficheiro = `nome_automacao` na planilha (sem precisar da extensao na celula).
+- Nome do ficheiro / `STEM_LOWER` / `PYTHON_NAME` = `python_name` (e `nome_automacao`)
+  na planilha `registro_automacoes.xlsx` (sem a extensao `.py` na celula).
 - Colocar o `.py` sob a pasta `automacoes/` (subpastas por area ok).
-- `cron_schedule` na planilha; o script em si nao agenda.
+- `cron_schedule` e `is_active` na planilha; o script em si nao agenda.
 - Retcodes 0 / 1 / 2 como na secao 6.
+- Emails de resultado: secao 13 (`emails_cc` + Outlook / pythoncom).
 - Log proprio de cada corrida (obrigatorio):
 
 ```text
-Path.home() / "Desktop" / "ServerCRON" / "logs" / <AREA> / <stem_lower>_<YYYYMMDD_HHMMSS>.log
+Path.home() / "Desktop" / "ServerCRON" / "logs" / <AREA> / <STEM_LOWER>_<YYYYMMDD_HHMMSS>.log
 ```
 
   Ex.: `automacoes/teste/padrao_success.py` ->
-  `Desktop/ServerCRON/logs/teste/padrao_success_20260802_173045.log`
+  `Desktop/ServerCRON/logs/teste/padrao_success_20260807_091735.log`
 
 - O historico global do server (CSV / painel / Power BI) continua em
   `Path.home() / "Documents" / "ServerCRON" / "logs" / historico_execucoes.csv`
@@ -821,28 +992,435 @@ Path.home() / "Desktop" / "ServerCRON" / "logs" / <AREA> / <stem_lower>_<YYYYMMD
 
 ---
 
-## 13. Checklist do agent (antes de entregar)
+## 13. Planilha registro_automacoes.xlsx + email Outlook (obrigatorio no futuro)
 
-- [ ] Sem emojis em lado nenhum (codigo, logs, docs)
-- [ ] Comentarios e docstrings em **pt-BR**
-- [ ] Logs com `INFO:` / `OK:` / `NO_DATA:` / `ERRO:` + linha final `RETCODE: N`
-- [ ] Ficheiro `.log` em `Path.home()/Desktop/ServerCRON/logs/<AREA>/<stem_lower>_<timestamp>.log`
-- [ ] Em error (1): **traceback completo** no stderr e no `.log`
-- [ ] Ficheiro organizado: imports -> constantes -> helpers -> `main` -> `sys.exit`
-- [ ] Padroes da secao 4 (f-strings, early return, sem `except:` vazio, pathlib, utf-8)
-- [ ] Sem caminho `C:\Users\...` ou `/Users/nome` hardcoded
-- [ ] Usa `Path.home()` / `Path(__file__)` onde couber
-- [ ] **Sempre** `sys.exit(0|1|2)` no fim (server / CSV / dashboard / Power BI)
-- [ ] Semantica correta: `0` success, `1` error, `2` no_data (sem material)
-- [ ] Se for web: Playwright + `channel="chrome"` + viewport `1920x1080`
-- [ ] Tratamento de "lista/pasta/email vazio" -> `2`, nao `1`
-- [ ] Segredos fora do codigo; sem dependencia nova nao listada
-- [ ] Diff minimo; sem over-engineering
-- [ ] Script executavel de ponta a ponta (ou passos de setup documentados)
+Todas as automacoes devem seguir o **mesmo padrao de variaveis** para encaixar
+no Excel de registro e nas notificacoes por email.
+
+### Onde fica o Excel
+
+```text
+Path(__file__) ... / ServerCRON / registro_automacoes.xlsx
+```
+
+Na raiz do projeto ServerCRON (junto de `server.py`), nao dentro de `automacoes/`.
+Modelo versionado: `registro_automacoes.example.xlsx`. Copia local (nao git):
+`registro_automacoes.xlsx`.
+
+### Colunas que o script / o ServerCRON usam
+
+Aba principal (nome tipico: `AUTOMACOES`). Colunas relevantes para o `.py`:
+
+| Coluna | Quem usa | Descricao |
+|--------|----------|-----------|
+| `python_name` | script + server | Nome do `.py` sem extensao. **Deve ser igual a `STEM_LOWER`**. Alias legado no server: `nome_automacao`. |
+| `area_name` | server / gestao | Area solicitante que pediu a automacao (ex.: `financeiro`, `rh`). |
+| `emails_cc` | **script** | Destinatarios do email de **success** (retcode 0). Varios emails separados por `,` ou `;`. |
+| `cron_schedule` | server | Expressao cron (o script nao agenda). |
+| `is_active` | server | TRUE/FALSE se o server deve agendar. |
+
+Outras colunas podem existir para o `server.py` (painel, BI, etc.). O script
+**nao precisa** ler todas; no minimo precisa de achar a linha do seu `python_name`
+e ler `emails_cc`.
+
+### Variaveis padrao no topo do `.py`
+
+```python
+PYTHON_NAME = STEM_LOWER
+REGISTRO_XLSX = Path.home() / "Desktop" / "ServerCRON" / "registro_automacoes.xlsx"
+# Se o projeto nao estiver no Desktop, resolver a partir de _SCRIPT:
+# REGISTRO_XLSX = next(
+#     (p / "registro_automacoes.xlsx" for p in _SCRIPT.parents
+#      if (p / "registro_automacoes.xlsx").is_file()),
+#     Path.home() / "Desktop" / "ServerCRON" / "registro_automacoes.xlsx",
+# )
+
+EMAIL_DEV = "dev@empresa.com"  # SEU email - unico destinatario em retcode 1 ou 2
+ENVIAR_EMAIL = True
+```
+
+`EMAIL_DEV` e o programador / operador da maquina. Em falha ou no_data **so ele**
+recebe o email (para depurar). Em success, quem recebe sao os da coluna `emails_cc`.
+
+### Regra de destinatarios por retcode
+
+| Retcode | Status (email) | Destinatarios do email |
+|---------|----------------|------------------------|
+| `0` | `SUCCESS` | Todos em `emails_cc` (virgula ou ponto-e-virgula). Se `emails_cc` vazio: so `EMAIL_DEV` (aviso no log). |
+| `1` | `ERROR` | **Apenas** `EMAIL_DEV` |
+| `2` | `NO DATA` | **Apenas** `EMAIL_DEV` |
+
+### Assunto do email (obrigatorio, sempre MAIUSCULAS)
+
+Formato fixo:
+
+```text
+MONITRACAO PYTHON - {PYTHON_NAME} - {STATUS}
+```
+
+Exemplos:
+
+```text
+MONITRACAO PYTHON - SCRAPE_QUOTES_EXEMPLO - SUCCESS
+MONITRACAO PYTHON - SCRAPE_QUOTES_EXEMPLO - ERROR
+MONITRACAO PYTHON - SCRAPE_QUOTES_EXEMPLO - NO DATA
+```
+
+Todo o assunto em maiusculas (incluindo o `PYTHON_NAME`).
+
+### Corpo do email (obrigatorio, HTML)
+
+O corpo e **HTML** (`mail.HTMLBody`), nao texto plano. Cores por status:
+
+| Status | Cor da faixa | Hex |
+|--------|--------------|-----|
+| `SUCCESS` | verde | `#1B7A4E` |
+| `ERROR` | vermelho | `#B42318` |
+| `NO DATA` | amarelo/ambar | `#B8860B` |
+
+Conteudo minimo (fuso `America/Sao_Paulo`), tipografia `Segoe UI` / `Calibri`:
+
+- faixa colorida com o STATUS
+- `INICIO AUTOMACAO: YYYY-MM-DD - HH:MM:SS`
+- `FIM AUTOMACAO: YYYY-MM-DD - HH:MM:SS`
+- `DURACAO: Xh Ym Zs`
+- `RESUMO:` texto curto
+
+Nunca enviar traceback completo no corpo para `emails_cc` (retcode 0). Em
+retcode 1/2 o resumo para `EMAIL_DEV` pode ser mais detalhado; o detalhe completo
+fica no `.log` anexado.
+
+### Anexo (obrigatorio)
+
+**Sempre** anexar o ficheiro `.log` da execucao corrente
+(`{STEM_LOWER}_{YYYYMMDD_HHMMSS}.log`). Fechar o log (`fechar_log_execucao`)
+**antes** de anexar, para o ficheiro ficar completo e nao bloqueado no Windows.
+
+### Envio: Outlook Classic via pythoncom (obrigatorio)
+
+Nao usar SMTP generico nestas automacoes. O envio e pelo **Outlook Classic**
+instalado na maquina, via `pywin32` (`win32com` + `pythoncom`).
+
+Incluir em `DEPENDENCIAS`:
+
+```python
+DEPENDENCIAS: list[tuple[str, str]] = [
+    ("openpyxl", "openpyxl"),   # ler registro_automacoes.xlsx
+    ("win32com", "pywin32"),    # Outlook Classic
+]
+```
+
+Helpers (modelo):
+
+```python
+STATUS_POR_RETCODE = {
+    0: "SUCCESS",
+    1: "ERROR",
+    2: "NO DATA",
+}
+
+
+def _partir_emails(bruto: str) -> list[str]:
+    """Separa emails por virgula ou ponto-e-virgula."""
+    if not bruto or not str(bruto).strip():
+        return []
+    partes = str(bruto).replace(";", ",").split(",")
+    return [p.strip() for p in partes if p.strip()]
+
+
+def ler_emails_cc_do_registro(python_name: str) -> list[str]:
+    """Le a coluna emails_cc da linha cujo python_name/nome_automacao = STEM_LOWER."""
+    from openpyxl import load_workbook
+
+    if not REGISTRO_XLSX.is_file():
+        raise FileNotFoundError(f"Planilha nao encontrada: {REGISTRO_XLSX}")
+
+    wb = load_workbook(REGISTRO_XLSX, read_only=True, data_only=True)
+    try:
+        ws = wb[wb.sheetnames[0]]
+        rows = ws.iter_rows(values_only=True)
+        header = next(rows, None)
+        if not header:
+            return []
+        headers = [str(h).strip().lower() if h is not None else "" for h in header]
+        # Aceitar python_name (novo) ou nome_automacao (legado ServerCRON)
+        idx_nome = next(
+            (i for i, h in enumerate(headers) if h in ("python_name", "nome_automacao")),
+            None,
+        )
+        idx_cc = next((i for i, h in enumerate(headers) if h == "emails_cc"), None)
+        if idx_nome is None or idx_cc is None:
+            raise KeyError(
+                "Planilha precisa de python_name (ou nome_automacao) e emails_cc"
+            )
+        alvo = python_name.strip().lower()
+        for row in rows:
+            if not row or idx_nome >= len(row):
+                continue
+            nome = row[idx_nome]
+            if nome is None:
+                continue
+            if str(nome).strip().lower() == alvo:
+                bruto = row[idx_cc] if idx_cc < len(row) else ""
+                return _partir_emails(str(bruto or ""))
+    finally:
+        wb.close()
+    return []
+
+
+def formatar_momento(dt: datetime) -> str:
+    """YYYY-MM-DD - HH:MM:SS no fuso America/Sao_Paulo."""
+    return dt.astimezone(TZ).strftime("%Y-%m-%d - %H:%M:%S")
+
+
+def formatar_duracao(inicio: datetime, fim: datetime) -> str:
+    """Duracao legivel a partir de inicio/fim."""
+    total = max(0, int((fim - inicio).total_seconds()))
+    horas, resto = divmod(total, 3600)
+    minutos, segundos = divmod(resto, 60)
+    return f"{horas}h {minutos}m {segundos}s"
+
+
+def montar_assunto_email(code: int) -> str:
+    """Assunto sempre em maiusculas: MONITRACAO PYTHON - NAME - STATUS."""
+    status = STATUS_POR_RETCODE.get(code, "ERROR")
+    return f"MONITRACAO PYTHON - {PYTHON_NAME.upper()} - {status}"
+
+
+# Cores da faixa HTML por status (Outlook le estilos inline)
+CORES_STATUS = {
+    "SUCCESS": {"faixa": "#1B7A4E", "fundo": "#E8F6EE", "texto": "#0F3D27"},
+    "ERROR": {"faixa": "#B42318", "fundo": "#FDECEC", "texto": "#7A1610"},
+    "NO DATA": {"faixa": "#B8860B", "fundo": "#FFF8E1", "texto": "#6B4E00"},
+}
+
+
+def montar_corpo_email(
+    code: int,
+    inicio: datetime,
+    fim: datetime,
+    resumo: str,
+) -> str:
+    """Corpo HTML padronizado: faixa colorida + tipografia + tempos + resumo."""
+    import html
+
+    status = STATUS_POR_RETCODE.get(code, "ERROR")
+    cores = CORES_STATUS.get(status, CORES_STATUS["ERROR"])
+    resumo_html = html.escape(resumo.strip()).replace("\n", "<br>")
+    nome = html.escape(PYTHON_NAME.upper())
+    inicio_txt = html.escape(formatar_momento(inicio))
+    fim_txt = html.escape(formatar_momento(fim))
+    duracao_txt = html.escape(formatar_duracao(inicio, fim))
+
+    return f"""\
+<html>
+<body style="margin:0;padding:0;background:#F4F4F1;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+         style="background:#F4F4F1;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="560" cellspacing="0" cellpadding="0"
+               style="max-width:560px;width:100%;background:#FFFFFF;
+                      border:1px solid #E2E2DE;border-radius:8px;
+                      font-family:'Segoe UI',Calibri,Candara,Arial,sans-serif;
+                      color:#1A1A1A;">
+          <tr>
+            <td style="background:{cores['faixa']};color:#FFFFFF;padding:18px 24px;
+                       font-size:13px;letter-spacing:0.08em;font-weight:700;
+                       text-transform:uppercase;">
+              MONITRACAO PYTHON
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:22px 24px 8px 24px;">
+              <div style="font-size:22px;line-height:1.25;font-weight:700;
+                          color:{cores['faixa']};margin:0 0 6px 0;">
+                {status}
+              </div>
+              <div style="font-size:14px;color:#555555;margin:0 0 18px 0;">
+                {nome}
+              </div>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+                     style="background:{cores['fundo']};border-radius:6px;
+                            border:1px solid {cores['faixa']}33;">
+                <tr>
+                  <td style="padding:14px 16px;font-size:14px;line-height:1.55;
+                             color:{cores['texto']};">
+                    <div style="margin:0 0 8px 0;">
+                      <strong>INICIO AUTOMACAO:</strong> {inicio_txt}
+                    </div>
+                    <div style="margin:0 0 8px 0;">
+                      <strong>FIM AUTOMACAO:</strong> {fim_txt}
+                    </div>
+                    <div style="margin:0;">
+                      <strong>DURACAO:</strong> {duracao_txt}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              <div style="margin:20px 0 6px 0;font-size:12px;letter-spacing:0.06em;
+                          font-weight:700;color:#666666;text-transform:uppercase;">
+                RESUMO
+              </div>
+              <div style="font-size:15px;line-height:1.55;color:#222222;
+                          padding:12px 14px;background:#FAFAF8;border-radius:6px;
+                          border:1px solid #E8E8E4;">
+                {resumo_html}
+              </div>
+              <div style="margin:18px 0 4px 0;font-size:12px;color:#888888;">
+                Log completo da execucao em anexo (.log).
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 24px 20px 24px;font-size:11px;color:#999999;">
+              ServerCRON - notificacao automatica
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+"""
+
+
+def enviar_email_outlook(
+    destinatarios: list[str],
+    assunto: str,
+    corpo_html: str,
+    anexo_log: Path | None = None,
+) -> None:
+    """Envia email HTML pelo Outlook Classic (pythoncom + win32com) com .log anexado."""
+    import pythoncom
+    import win32com.client
+
+    if not destinatarios:
+        log_info("Nenhum destinatario de email; a saltar envio.")
+        return
+
+    para = "; ".join(destinatarios)
+    pythoncom.CoInitialize()
+    try:
+        outlook = win32com.client.Dispatch("Outlook.Application")
+        mail = outlook.CreateItem(0)  # olMailItem
+        mail.To = para
+        mail.Subject = assunto
+        mail.HTMLBody = corpo_html
+        if anexo_log is not None and anexo_log.is_file():
+            mail.Attachments.Add(str(anexo_log.resolve()))
+        mail.Send()
+        # Depois de Send() o item some do COM; nao aceder a mail.To
+        log_info(f"Email Outlook enviado para: {para}")
+    finally:
+        pythoncom.CoUninitialize()
+
+
+def notificar_por_email(
+    code: int,
+    resumo: str,
+    inicio: datetime,
+    fim: datetime,
+    caminho_log: Path | None = None,
+) -> None:
+    """
+    Retcode 0 -> emails_cc da planilha.
+    Retcode 1 ou 2 -> apenas EMAIL_DEV.
+    Sempre anexa o .log da execucao (se existir).
+    """
+    if not ENVIAR_EMAIL:
+        log_info("ENVIAR_EMAIL=False; notificacao desligada.")
+        return
+
+    if code == 0:
+        try:
+            destinatarios = ler_emails_cc_do_registro(PYTHON_NAME)
+        except Exception as exc:
+            log_info(f"Falha ao ler emails_cc; a usar EMAIL_DEV. Motivo: {exc}")
+            destinatarios = [EMAIL_DEV]
+        if not destinatarios:
+            log_info("emails_cc vazio; a notificar so EMAIL_DEV.")
+            destinatarios = [EMAIL_DEV]
+    else:
+        destinatarios = [EMAIL_DEV]
+
+    assunto = montar_assunto_email(code)
+    corpo_html = montar_corpo_email(code, inicio, fim, resumo)
+    enviar_email_outlook(destinatarios, assunto, corpo_html, anexo_log=caminho_log)
+```
+
+### Onde chamar no `__main__`
+
+Registar `inicio` no arranque, `fim` apos o `main`, **fechar o log** e so depois
+enviar o email (para o anexo `.log` ficar completo):
+
+```python
+if __name__ == "__main__":
+    inicio = datetime.now(TZ)
+    caminho_log = iniciar_log_execucao()
+    code = 1
+    try:
+        try:
+            garantir_dependencias()
+            code = main()
+        except Exception as exc:
+            log_erro(f"Falha nao tratada: {exc}", com_traceback=True)
+            code = encerrar(1)
+        if code not in (0, 1, 2):
+            code = encerrar(1)
+    finally:
+        fechar_log_execucao()
+
+    fim = datetime.now(TZ)
+    try:
+        notificar_por_email(
+            code,
+            resumo=f"RETCODE: {code}",
+            inicio=inicio,
+            fim=fim,
+            caminho_log=caminho_log,
+        )
+    except Exception as exc:
+        # Email falhou: nao mascara o retcode da automacao
+        print(f"ERRO: Falha ao enviar email Outlook: {exc}", file=sys.stderr, flush=True)
+    sys.exit(code)
+```
+
+Se o Outlook nao estiver aberto / perfil nao configurado, o envio pode falhar:
+registar `ERRO:` (console / log se ainda aberto), mas **manter** o retcode
+original da automacao (0/1/2).
+
+### Requisitos na maquina
+
+- Outlook Classic instalado e perfil de email configurado (conta que envia).
+- `pywin32` e `openpyxl` (via `garantir_dependencias`).
+- Preferivel Outlook ja autenticado na sessao do Windows do ServerCRON.
 
 ---
 
-## 14. Como o utilizador pede ao agent
+## 14. Checklist do agent (antes de entregar)
+
+- [ ] Sem emojis em lado nenhum (codigo, logs, docs)
+- [ ] Comentarios e docstrings em **pt-BR**
+- [ ] Ordem: stdlib -> variaveis (`STEM_LOWER`, `DEPENDENCIAS`, `PYTHON_NAME`, `EMAIL_DEV`, ...) -> funcoes -> `main` -> email -> `sys.exit`
+- [ ] `garantir_dependencias()` no arranque (inclui `openpyxl` + `pywin32` se houver email)
+- [ ] Imports de terceiros so **depois** do ensure
+- [ ] Pasta de logs + `{STEM_LOWER}_{timestamp}.log`
+- [ ] Logs `INFO:` / `OK:` / `NO_DATA:` / `ERRO:` + `RETCODE: N`
+- [ ] Em error (1): traceback completo no stderr e no `.log`
+- [ ] `PYTHON_NAME` = `STEM_LOWER` alinhado a coluna `python_name` / `nome_automacao` do Excel
+- [ ] Email Outlook (pythoncom): assunto `MONITRACAO PYTHON - NAME - STATUS` (maiusculas); corpo HTML com faixa verde/vermelho/amarelo + INICIO/FIM/DURACAO; sempre anexar `.log`
+- [ ] Email: retcode 0 -> `emails_cc`; retcode 1 ou 2 -> so `EMAIL_DEV`
+- [ ] Sem caminho `C:\Users\...` hardcoded; usa `Path.home()` / `Path(__file__)`
+- [ ] **Sempre** `sys.exit(0|1|2)`
+- [ ] Se for web: Playwright + `channel="chrome"` + viewport `1920x1080`
+- [ ] Pasta/lista vazia -> `2`, nao `1`
+- [ ] Diff minimo; sem over-engineering
+
+---
+
+## 15. Como o utilizador pede ao agent
 
 Modelo de pedido:
 
@@ -850,6 +1428,8 @@ Modelo de pedido:
 > Cria a automacao que faz: [descrever o fluxo].
 > Entrada: [pasta / email / URL].
 > Saida: [onde gravar].
+> Area solicitante: [area_name].
+> Emails success (emails_cc): [lista].
 > Empresa: [regras extras se houver].
 
 O agent implementa o `.py` obedecendo este documento.
